@@ -1,20 +1,18 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getConfig, updateConfig, getTradeHistory, getTradeStats } from '../api'
-import { getAiConfig, saveAiConfig } from '../api'
-import { Card, Button, Toggle } from './UI'
+import { Card, Toggle } from './UI'
+import WalletModal from './WalletModal'
 import { clsx } from 'clsx'
 
 const CHAIN_OPTIONS = ['SOL', 'BSC', 'ETH', 'XLAYER']
 
 const FILTER_DEFAULTS = {
-  // 支出限额
   spend_limit_enabled: 'false',
   spend_limit_usdt: '50',
   spend_limit_hours: '24',
-  // 重复买入
   ca_repeat_buy_enabled: 'false',
   ca_repeat_qwfc_delta: '20',
-  // 发币人质量
   filter_sender_win_rate_enabled: 'false',
   filter_sender_win_rate_min: '60',
   filter_sender_group_win_rate_enabled: 'false',
@@ -24,10 +22,8 @@ const FILTER_DEFAULTS = {
   filter_sender_best_multiple_enabled: 'false',
   filter_sender_best_multiple_min: '10',
   filter_new_sender_action: 'skip',
-  // 防追高
   filter_current_multiple_enabled: 'false',
   filter_current_multiple_max: '3',
-  // 传播热度
   filter_qwfc_enabled: 'false',
   filter_qwfc_min: '3',
   filter_bqfc_enabled: 'false',
@@ -36,7 +32,6 @@ const FILTER_DEFAULTS = {
   filter_fgq_min: '2',
   filter_grcxcs_enabled: 'false',
   filter_grcxcs_min: '1',
-  // 市场数据
   filter_market_cap_enabled: 'false',
   filter_market_cap_min: '10000',
   filter_market_cap_max: '5000000',
@@ -46,7 +41,6 @@ const FILTER_DEFAULTS = {
   filter_buy_volume_1h_min: '1000',
   filter_holders_enabled: 'false',
   filter_holders_min: '50',
-  // 安全
   filter_honeypot_enabled: 'true',
   filter_honeypot_unknown_action: 'skip',
   filter_mintable_enabled: 'true',
@@ -56,7 +50,125 @@ const FILTER_DEFAULTS = {
   filter_max_holder_pct_max: '90',
 }
 
+// ── Inline SVG icons (replace emojis) ────────────────────────────────
+function Icon({ name, className = 'w-4 h-4' }) {
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }
+  const paths = {
+    lock:   <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+    bolt:   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
+    link:   <><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></>,
+    alert:  <><path d="M12 2 1 21h22L12 2z"/><line x1="12" y1="9"  x2="12" y2="14"/><line x1="12" y1="18" x2="12" y2="18"/></>,
+    check:  <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>,
+    target: <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>,
+    shield: <><path d="M12 2 3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z"/></>,
+    clock:  <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
+    pointer:<><path d="M9 11V5a2 2 0 0 1 4 0v8"/><path d="M13 13V8a2 2 0 0 1 4 0v9"/><path d="M17 12V9a2 2 0 0 1 4 0v8a5 5 0 0 1-5 5h-3a6 6 0 0 1-6-6V7a2 2 0 0 1 4 0v6"/></>,
+    skull:  <><path d="M8 22v-3l-2-1V14a6 6 0 1 1 12 0v4l-2 1v3"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><line x1="12" y1="17" x2="12" y2="20"/></>,
+    save:   <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>,
+    chevron:<polyline points="9 18 15 12 9 6"/>,
+    info:   <><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>,
+  }
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...common}>{paths[name] || null}</svg>
+  )
+}
+
+// Section header — matches FollowModal title/subtitle scale
+function SectionHeader({ title, desc, action }) {
+  return (
+    <div className="flex items-start justify-between gap-4 mb-5">
+      <div className="flex-1 min-w-0">
+        <h3 className="cp-modal-title !text-[17px] !mb-0">{title}</h3>
+        {desc && <p className="cp-modal-subtitle !normal-case !text-[14px] !text-gray-300 mt-2 !font-semibold !tracking-wide">{desc}</p>}
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  )
+}
+
+// Cyberpunk-styled number input wrapper — uses cp-modal-label (matches FollowModal)
+function NumberInput({ label, value, onChange, min, max, step = 1, hint, disabled }) {
+  return (
+    <div>
+      <label className="cp-modal-label">{label}</label>
+      <input
+        type="number"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        className={clsx('cp-input', disabled && 'opacity-40 cursor-not-allowed')}
+      />
+      {hint && <p className="cp-hint">{hint}</p>}
+    </div>
+  )
+}
+
+// One row in a filter list — checkbox-style toggle, label, value input
+function FilterRow({ label, enabled, onToggle, value, onChange, unit, min, max, step = 1, hint }) {
+  return (
+    <div className={clsx('cp-filter-row', !enabled && 'cp-filter-row-disabled')}>
+      <button
+        type="button"
+        onClick={() => onToggle(!enabled)}
+        className={clsx('cp-checkbox shrink-0', enabled && 'cp-checkbox-on')}
+        aria-pressed={enabled}
+      >
+        {enabled && <Icon name="check" className="w-3 h-3 text-accent-green" />}
+      </button>
+      <label
+        onClick={() => onToggle(!enabled)}
+        className="cp-filter-label cursor-pointer flex-1 min-w-0"
+      >
+        {label}
+      </label>
+      <div className="flex items-center gap-2 shrink-0">
+        <input
+          type="number"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          disabled={!enabled}
+          min={min} max={max} step={step}
+          className={clsx('cp-input !w-28 !py-1.5', !enabled && 'opacity-40 cursor-not-allowed')}
+        />
+        <span className="text-sm font-mono text-accent-green/70 tracking-wide w-10 text-left">{unit}</span>
+      </div>
+      {hint && <p className="cp-filter-hint">{hint}</p>}
+    </div>
+  )
+}
+
+// Compact info banner with leading icon
+function InfoBanner({ icon, tone, children }) {
+  const tones = {
+    green:   'border-accent-green/40 bg-accent-green/8 text-accent-green',
+    yellow:  'border-accent-yellow/40 bg-accent-yellow/8 text-accent-yellow',
+    blue:    'border-accent-blue/40 bg-accent-blue/8 text-accent-blue',
+    magenta: 'border-accent-purple/40 bg-accent-purple/8 text-accent-purple',
+    gray:    'border-dark-500 bg-dark-700/40 text-gray-500',
+  }
+  return (
+    <div className={clsx('cp-info-banner', tones[tone] || tones.gray)}>
+      {icon && <Icon name={icon} className="w-3.5 h-3.5 shrink-0" />}
+      <span className="text-[14px] font-bold font-mono tracking-wide leading-relaxed">{children}</span>
+    </div>
+  )
+}
+
+// Sub-card for nested toggle blocks
+function Subcard({ children, dim }) {
+  return (
+    <div className={clsx('cp-stat-panel !p-4 mt-4', dim && 'opacity-50')}>
+      {children}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────
 export default function ConfigPanel({ onConfigSaved }) {
+  const { t } = useTranslation()
   const [cfg, setCfg] = useState({
     bot_enabled: 'false',
     auto_buy_enabled: 'false',
@@ -85,33 +197,10 @@ export default function ConfigPanel({ onConfigSaved }) {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-
-  // AI 接口配置（独立状态，通过 AI config API 读写）
-  const [aiCfg, setAiCfg] = useState({
-    enabled: false,
-    use_builtin: true,
-    builtin_available: false,
-    builtin_daily_limit: 50,
-    builtin_used_today: 0,
-    builtin_remaining: 50,
-    provider: 'cometapi',
-    model: '',
-    api_key_set: false,
-    base_url: '',
-    max_tokens: 1024,
-    temperature: 0.7,
-    providers: {},
-  })
-  const [aiApiKey, setAiApiKey] = useState('')
-  const [aiSaving, setAiSaving] = useState(false)
-  const [aiSaved, setAiSaved] = useState(false)
+  const [walletOpen, setWalletOpen] = useState(false)
 
   useEffect(() => {
-    getConfig().then(data => setCfg(prev => ({ ...prev, ...data }))).catch(() => { })
-  }, [])
-
-  useEffect(() => {
-    getAiConfig().then(d => setAiCfg(prev => ({ ...prev, ...d }))).catch(() => {})
+    getConfig().then(data => setCfg(prev => ({ ...prev, ...data }))).catch(() => {})
   }, [])
 
   const set = (key, val) => setCfg(prev => ({ ...prev, [key]: val }))
@@ -134,1016 +223,679 @@ export default function ConfigPanel({ onConfigSaved }) {
       setTimeout(() => setSaved(false), 2000)
       onConfigSaved?.()
     } catch (e) {
-      alert('保存失败: ' + e.message)
+      alert(t('config.save_failed') + ': ' + e.message)
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleAiSave = async () => {
-    setAiSaving(true)
-    try {
-      const body = {
-        enabled: aiCfg.enabled,
-        use_builtin: aiCfg.use_builtin,
-        provider: aiCfg.provider,
-        model: aiCfg.model,
-        base_url: aiCfg.base_url,
-        max_tokens: aiCfg.max_tokens,
-        temperature: aiCfg.temperature,
-      }
-      if (aiApiKey) body.api_key = aiApiKey
-      await saveAiConfig(body)
-      setAiApiKey('')
-      // 刷新用量等信息
-      const fresh = await getAiConfig()
-      setAiCfg(prev => ({ ...prev, ...fresh }))
-      setAiSaved(true)
-      setTimeout(() => setAiSaved(false), 2000)
-    } catch (e) {
-      alert('AI 配置保存失败: ' + e.message)
-    } finally {
-      setAiSaving(false)
-    }
-  }
-
-  const loadWallets = async () => {
-    setLoadingWallets(true)
-    try {
-      const data = await getWalletAddresses()
-      setWallets(data.addresses || {})
-    } catch (e) {
-      alert('获取钱包地址失败（请先配置助记词）')
-    } finally {
-      setLoadingWallets(false)
     }
   }
 
   const enabledChainsArr = cfg.enabled_chains.split(',').filter(Boolean)
   const botEnabled = cfg.bot_enabled === 'true'
 
+  // Status line at top of bot card
+  const statusLine = botEnabled
+    ? cfg.auto_buy_enabled === 'true'
+      ? <InfoBanner icon="bolt" tone="yellow">{t('config.bot.status_auto')}</InfoBanner>
+      : <InfoBanner icon="link" tone="blue">{t('config.bot.status_follow')}</InfoBanner>
+    : <InfoBanner icon="alert" tone="yellow">{t('config.bot.status_paused')}</InfoBanner>
+
   return (
-    <div className="space-y-4">
-      {/* Bot 开关 */}
-      <Card>
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-200">Bot 状态</h3>
-            <p className="text-xs text-gray-500 mt-0.5">开启后监听 CA 推送，配合下方开关决定是否买入</p>
-          </div>
-          <Toggle
-            checked={botEnabled}
-            onChange={(v) => set('bot_enabled', v ? 'true' : 'false')}
-          />
+    <div className="cp-cfg-page">
+      {/* Sticky top bar: title + actions */}
+      <header className="cp-cfg-topbar">
+        <div className="min-w-0">
+          <h2 className="cp-modal-title !text-[22px] !mb-0 truncate">{t('config.page_title')}</h2>
+          <p className="cp-modal-subtitle !text-[13px] !normal-case !text-gray-300 !font-semibold mt-1 truncate">{t('config.page_subtitle')}</p>
         </div>
-
-        {/* 信息流自动购买 */}
-        <div className={clsx(
-          'mt-3 pt-3 border-t border-dark-600 flex items-center justify-between',
-          !botEnabled && 'opacity-40 pointer-events-none'
-        )}>
-          <div>
-            <p className="text-sm text-gray-300 font-medium">信息流自动购买</p>
-            <p className="text-xs text-gray-500 mt-0.5">开启后：过滤通过的 CA 自动买入（全局参数）<br />关闭后：仅执行已配置跟单的喊单人信号</p>
-          </div>
-          <Toggle
-            checked={cfg.auto_buy_enabled === 'true'}
-            onChange={(v) => set('auto_buy_enabled', v ? 'true' : 'false')}
-          />
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => setWalletOpen(true)}
+            className="cp-cfg-btn cp-cfg-btn-ghost"
+            title={t('config.wallet_link.title')}
+          >
+            <Icon name="lock" className="w-3.5 h-3.5" />
+            <span>{t('config.wallet_link.title')}</span>
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className={clsx('cp-cfg-btn cp-cfg-btn-primary', saved && 'cp-cfg-btn-saved')}
+          >
+            <Icon name={saved ? 'check' : 'save'} className="w-3.5 h-3.5" />
+            <span>{saving ? t('config.saving') : saved ? t('config.saved') : t('config.save_btn')}</span>
+          </button>
         </div>
+      </header>
 
-        {/* 一键牛人榜跟单 */}
-        <div className="mt-3 pt-3 border-t border-dark-600 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-300 font-medium">一键牛人榜跟单</p>
-            <p className="text-xs text-gray-500 mt-0.5">开启后：牛人榜右上角显示「一键跟单」按钮，可批量添加跟单配置</p>
-          </div>
-          <Toggle
-            checked={cfg.leaderboard_batch_follow_enabled === 'true'}
-            onChange={(v) => set('leaderboard_batch_follow_enabled', v ? 'true' : 'false')}
+      <div className="cp-cfg-grid">
+      {/* ──────── Column 1: Status & Interface ──────── */}
+      <div className="cp-cfg-col">
+        <div className="cp-cfg-col-head">{t('config.col_status')}</div>
+
+        {/* ── Bot status ── */}
+        <Card className="cp-cfg-card">
+          <SectionHeader
+            title={t('config.bot.title')}
+            desc={t('config.bot.desc')}
+            action={<Toggle checked={botEnabled} onChange={(v) => set('bot_enabled', v ? 'true' : 'false')} />}
           />
-        </div>
-
-        {botEnabled ? (
-          cfg.auto_buy_enabled === 'true' ? (
-            <div className="mt-3 text-xs text-orange-400/80 flex items-center gap-1.5">
-              <span>⚡</span>
-              自动购买已开启 — 过滤通过即买入
-            </div>
-          ) : (
-            <div className="mt-3 text-xs text-blue-400/80 flex items-center gap-1.5">
-              <span>🔗</span>
-              跟单模式 — 仅对已配置跟单的喊单人执行买入
-            </div>
-          )
-        ) : (
-          <div className="mt-3 text-xs text-yellow-500/80 flex items-center gap-1.5">
-            <span>⚠️</span>
-            已停止 — 观察模式，不会执行任何买卖
-          </div>
-        )}
-      </Card>
-
-      {/* ── API Keys ──────────────────────────────────────────── */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-1">API 配置</h3>
-        <p className="text-xs text-gray-500 mb-3">修改后点击保存立即生效，无需重启</p>
-        <div className="space-y-4">
-          {/* Trade API */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-300">AVE Trade API</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-900/30 text-yellow-400">用于买卖交易</span>
-            </div>
-            {/* 敏感字段：后端返回 __set__ 时显示已锁定状态 */}
-            {cfg.ave_trade_api_key === '__set__' ? (
-              <div className="flex items-center gap-2 px-3 py-2 bg-dark-700 border border-dark-500 rounded-lg">
-                <span className="text-gray-600 text-sm">🔐</span>
-                <span className="text-xs text-gray-500">API Key 已设置（管理员权限查看）</span>
+          <div className={clsx('cp-cfg-divided-rows', !botEnabled && 'opacity-40 pointer-events-none')}>
+            <div className="cp-cfg-row">
+              <div className="flex-1 min-w-0">
+                <p className="cp-modal-label !mb-1">{t('config.bot.auto_buy')}</p>
+                <p className="cp-hint">{t('config.bot.auto_buy_desc')}</p>
               </div>
-            ) : (
-              <div className="space-y-1.5">
-                <div>
-                  <label className="text-[10px] text-gray-500 mb-0.5 block">API Key</label>
-                  <input
-                    type="password"
-                    value={cfg.ave_trade_api_key}
-                    onChange={e => set('ave_trade_api_key', e.target.value)}
-                    placeholder="Bearer token..."
-                    className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono placeholder-gray-600 focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 mb-0.5 block">Base URL</label>
-                  <input
-                    type="text"
-                    value={cfg.ave_trade_api_url}
-                    onChange={e => set('ave_trade_api_url', e.target.value)}
-                    className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-400 font-mono focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-dark-600" />
-
-          {/* Data API */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-300">AVE Data API</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400">用于行情数据</span>
-            </div>
-            {cfg.ave_data_api_key === '__set__' ? (
-              <div className="flex items-center gap-2 px-3 py-2 bg-dark-700 border border-dark-500 rounded-lg">
-                <span className="text-gray-600 text-sm">🔐</span>
-                <span className="text-xs text-gray-500">API Key 已设置（管理员权限查看）</span>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <div>
-                  <label className="text-[10px] text-gray-500 mb-0.5 block">API Key</label>
-                  <input
-                    type="password"
-                    value={cfg.ave_data_api_key}
-                    onChange={e => set('ave_data_api_key', e.target.value)}
-                    placeholder="Ave-Auth token..."
-                    className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono placeholder-gray-600 focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 mb-0.5 block">Base URL</label>
-                  <input
-                    type="text"
-                    value={cfg.ave_data_api_url}
-                    onChange={e => set('ave_data_api_url', e.target.value)}
-                    className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-400 font-mono focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </Card>
-
-      {/* ── AI 接口配置 ───────────────────────────────────────── */}
-      <Card>
-        <div className="flex items-center justify-between mb-1">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-200">AI 助手接口</h3>
-            <p className="text-xs text-gray-500 mt-0.5">配置右下角 AI 助手使用的大语言模型接口</p>
-          </div>
-          <Toggle
-            checked={aiCfg.enabled}
-            onChange={v => setAiCfg(prev => ({ ...prev, enabled: v }))}
-          />
-        </div>
-
-        {aiCfg.enabled && (
-          <div className="mt-3 space-y-4">
-            {/* 内置共享 Key 区域 */}
-            <div className="p-3 rounded-lg bg-dark-700 border border-dark-500 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-300">使用内置共享 Key</span>
-                    {aiCfg.builtin_available
-                      ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400">可用</span>
-                      : <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500">未配置</span>
-                    }
-                  </div>
-                  <div className="text-[10px] text-gray-500 mt-0.5">
-                    每日限额 {aiCfg.builtin_daily_limit} 次 · 已用 {aiCfg.builtin_used_today} · 剩余{' '}
-                    <span className={clsx('font-mono', aiCfg.builtin_remaining > 10 ? 'text-green-400' : aiCfg.builtin_remaining > 0 ? 'text-yellow-400' : 'text-red-400')}>
-                      {aiCfg.builtin_remaining}
-                    </span> 次
-                  </div>
-                </div>
-                <Toggle
-                  checked={aiCfg.use_builtin}
-                  onChange={v => setAiCfg(prev => ({ ...prev, use_builtin: v }))}
-                />
-              </div>
-
-              {/* 进度条 */}
-              {aiCfg.builtin_daily_limit > 0 && (
-                <div className="w-full bg-dark-600 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className={clsx('h-full rounded-full transition-all',
-                      aiCfg.builtin_remaining > 10 ? 'bg-green-400' :
-                      aiCfg.builtin_remaining > 0  ? 'bg-yellow-400' : 'bg-red-400'
-                    )}
-                    style={{ width: `${Math.min(100, (aiCfg.builtin_used_today / aiCfg.builtin_daily_limit) * 100)}%` }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* 自定义 Key 区域（内置关闭时展示，内置开启时折叠） */}
-            <div className={clsx('space-y-3', aiCfg.use_builtin && aiCfg.builtin_available ? 'opacity-50' : '')}>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-300">自定义 API Key</span>
-                {aiCfg.use_builtin && aiCfg.builtin_available && (
-                  <span className="text-[10px] text-gray-600">（内置 Key 生效中，此处为备用）</span>
-                )}
-              </div>
-
-              {/* Provider 选择 */}
-              <div>
-                <label className="text-[10px] text-gray-500 mb-0.5 block">AI 提供商</label>
-                <select
-                  value={aiCfg.provider}
-                  onChange={e => setAiCfg(prev => ({ ...prev, provider: e.target.value, model: '' }))}
-                  className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-accent-blue"
-                >
-                  {Object.entries(aiCfg.providers || {}).map(([k, v]) => (
-                    <option key={k} value={k}>{v.name || k}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 模型选择 */}
-              <div>
-                <label className="text-[10px] text-gray-500 mb-0.5 block">模型</label>
-                {(aiCfg.providers?.[aiCfg.provider]?.models || []).length > 0 ? (
-                  <select
-                    value={aiCfg.model}
-                    onChange={e => setAiCfg(prev => ({ ...prev, model: e.target.value }))}
-                    className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-accent-blue"
-                  >
-                    <option value="">-- 选择模型 --</option>
-                    {(aiCfg.providers[aiCfg.provider].models || []).map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    value={aiCfg.model}
-                    onChange={e => setAiCfg(prev => ({ ...prev, model: e.target.value }))}
-                    placeholder="输入模型名称，如 gpt-4o-mini"
-                    className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono focus:outline-none focus:border-accent-blue"
-                  />
-                )}
-              </div>
-
-              {/* API Key */}
-              <div>
-                <label className="text-[10px] text-gray-500 mb-0.5 block">
-                  API Key {aiCfg.api_key_set && <span className="text-green-400">（已设置）</span>}
-                </label>
-                <input
-                  type="password"
-                  value={aiApiKey}
-                  onChange={e => setAiApiKey(e.target.value)}
-                  placeholder={aiCfg.api_key_set ? '留空保持不变' : '填入你的 API Key'}
-                  className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono placeholder-gray-600 focus:outline-none focus:border-accent-blue"
-                />
-              </div>
-
-              {/* Base URL */}
-              <div>
-                <label className="text-[10px] text-gray-500 mb-0.5 block">
-                  Base URL
-                  <span className="ml-1 text-gray-600">（cometapi: https://api.cometapi.com/v1）</span>
-                </label>
-                <input
-                  value={aiCfg.base_url}
-                  onChange={e => setAiCfg(prev => ({ ...prev, base_url: e.target.value }))}
-                  placeholder="https://api.cometapi.com/v1"
-                  className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-400 font-mono focus:outline-none focus:border-accent-blue"
-                />
-              </div>
-
-              {/* 高级参数 */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-gray-500 mb-0.5 block">Max Tokens</label>
-                  <input
-                    type="number" min={128} max={8192}
-                    value={aiCfg.max_tokens}
-                    onChange={e => setAiCfg(prev => ({ ...prev, max_tokens: Number(e.target.value) }))}
-                    className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 mb-0.5 block">Temperature</label>
-                  <input
-                    type="number" min={0} max={2} step={0.1}
-                    value={aiCfg.temperature}
-                    onChange={e => setAiCfg(prev => ({ ...prev, temperature: Number(e.target.value) }))}
-                    className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 保存按钮 */}
-            <button
-              onClick={handleAiSave}
-              disabled={aiSaving}
-              className={clsx(
-                'w-full py-2 rounded-lg text-xs font-semibold transition-colors',
-                aiSaved
-                  ? 'bg-green-600/30 text-green-400 border border-green-700/40'
-                  : 'bg-accent-blue/80 hover:bg-accent-blue text-white'
-              )}
-            >
-              {aiSaving ? '保存中...' : aiSaved ? '已保存 ✓' : '保存 AI 配置'}
-            </button>
-          </div>
-        )}
-      </Card>
-
-      {/* 交易参数 */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">交易参数</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <NumberInput
-            label="买入金额 (USDT)"
-            value={cfg.buy_amount_usdt}
-            onChange={v => set('buy_amount_usdt', v)}
-            min={0.1} max={100} step={0.1}
-            hint="统一填 U 金额，各链自动换算：BSC/ETH 用 USDT，BASE/XLAYER 用 USDC，SOL 按实时价格换算为 SOL"
-          />
-          <NumberInput
-            label="最大并发持仓数"
-            value={cfg.max_concurrent_positions}
-            onChange={v => set('max_concurrent_positions', v)}
-            min={1} max={20}
-            hint="同时持有的最多仓位数"
-          />
-        </div>
-        {/* 金额自动升级 */}
-        <div className="mt-3 p-3 rounded-lg bg-dark-700 border border-dark-500 space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs font-medium text-gray-300">买入金额自动升级</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">原始金额失败时，自动用更大金额重试一次</div>
-            </div>
-            <Toggle
-              checked={cfg.buy_amount_fallback_enabled === 'true'}
-              onChange={v => set('buy_amount_fallback_enabled', v ? 'true' : 'false')}
-            />
-          </div>
-          {cfg.buy_amount_fallback_enabled === 'true' && (
-            <div className="pt-1">
-              <NumberInput
-                label="升级后金额 (USDT)"
-                value={cfg.buy_amount_fallback_usdt}
-                onChange={v => set('buy_amount_fallback_usdt', v)}
-                min={1} max={100} step={0.5}
-                hint={`原始 ${cfg.buy_amount_usdt}U 失败 → 自动改用此金额重试（同样按链换算）`}
+              <Toggle
+                checked={cfg.auto_buy_enabled === 'true'}
+                onChange={(v) => set('auto_buy_enabled', v ? 'true' : 'false')}
               />
             </div>
-          )}
-        </div>
-        {/* 买入预检 */}
-        <div className="mt-3 p-3 rounded-lg bg-dark-700 border border-dark-500 space-y-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs font-medium text-gray-300">买入前预检（getAmountOut）</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">买入前先询价验证代币合约有效性，可过滤无效/无流动性代币，避免浪费 gas</div>
-            </div>
-            <Toggle
-              checked={cfg.buy_precheck_enabled === 'true'}
-              onChange={v => set('buy_precheck_enabled', v ? 'true' : 'false')}
-            />
-          </div>
-          <p className="text-[10px] text-gray-600">
-            {cfg.buy_precheck_enabled === 'true'
-              ? '✅ 开启：预检失败（无法询价）的代币直接跳过，不发送交易'
-              : '⚠ 关闭：跳过预检，直接尝试买入，合约无效时才报错（消耗一次 createEvmTx）'}
-          </p>
-        </div>
-        {/* 失败冷却时间 */}
-        <div className="mt-3">
-          <NumberInput
-            label="买入失败冷却时间 (秒)"
-            value={cfg.buy_fail_cooldown_seconds}
-            onChange={v => set('buy_fail_cooldown_seconds', v)}
-            min={0} max={3600} step={30}
-            hint="同一 CA 买入失败后，冷却此时长内不再重试（0=不冷却；推荐 300 秒）"
-          />
-        </div>
-        {/* BNB 回退买入 */}
-        <div className="mt-3 p-3 rounded-lg bg-dark-700 border border-dark-500 space-y-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs font-medium text-gray-300">BNB 代替 USDT 买入（仅 BSC）</div>
-              <div className="text-[10px] text-gray-500 mt-0.5">
-                钱包 USDT 余额不足时，自动用等值 BNB 买入<br />
-                例如设定 10U 一笔，USDT 不足则换算为约等值 BNB 数量执行
+            <div className="cp-cfg-row">
+              <div className="flex-1 min-w-0">
+                <p className="cp-modal-label !mb-1">{t('config.bot.batch_follow')}</p>
+                <p className="cp-hint">{t('config.bot.batch_follow_desc')}</p>
               </div>
+              <Toggle
+                checked={cfg.leaderboard_batch_follow_enabled === 'true'}
+                onChange={(v) => set('leaderboard_batch_follow_enabled', v ? 'true' : 'false')}
+              />
             </div>
-            <Toggle
-              checked={cfg.buy_with_bnb_fallback_enabled === 'true'}
-              onChange={v => set('buy_with_bnb_fallback_enabled', v ? 'true' : 'false')}
-            />
           </div>
-          <p className="text-[10px] text-gray-600">
-            {cfg.buy_with_bnb_fallback_enabled === 'true'
-              ? '✅ 开启：USDT 不足时自动切换 BNB，按实时价格换算（60s缓存）'
-              : '关闭：USDT 余额不足时直接报错跳过'}
-          </p>
-        </div>
-      </Card>
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">卖出策略</h3>
-        <div className="grid grid-cols-3 gap-4">
-          <NumberInput
-            label="止盈 (%)"
-            value={cfg.take_profit_pct}
-            onChange={v => set('take_profit_pct', v)}
-            min={1} max={10000}
-            hint="涨幅达到此值自动卖出"
-          />
-          <NumberInput
-            label="止损 (%)"
-            value={cfg.stop_loss_pct}
-            onChange={v => set('stop_loss_pct', v)}
-            min={1} max={100}
-            hint="跌幅达到此值自动卖出"
-          />
-          <NumberInput
-            label="最大持仓时间 (分钟)"
-            value={cfg.max_hold_minutes}
-            onChange={v => set('max_hold_minutes', v)}
-            min={1} max={1440}
-            hint="超过此时间强制卖出"
-          />
-        </div>
-      </Card>
+          <div className="mt-4">{statusLine}</div>
+        </Card>
 
-      {/* ── 仪表盘显示 ────────────────────────────────────────── */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">仪表盘显示</h3>
-        <div className="space-y-3">
-          {/* 实时日志开关 */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-300 font-medium">显示实时日志</p>
-              <p className="text-xs text-gray-600 mt-0.5">关闭后右侧日志栏收起，页面更宽敞</p>
-            </div>
-            <Toggle
-              checked={localStorage.getItem('show_live_log') !== 'false'}
-              onChange={(v) => {
-                localStorage.setItem('show_live_log', v ? 'true' : 'false')
-                window.dispatchEvent(new CustomEvent('show_live_log_change', { detail: v }))
-              }}
+        {/* ── API config ── */}
+        <Card className="cp-cfg-card">
+          <SectionHeader title={t('config.api.title')} desc={t('config.api.desc')} />
+          <div className="grid md:grid-cols-2 gap-5">
+            <ApiKeyBlock
+              title={t('config.api.trade_title')}
+              badge={t('config.api.trade_badge')}
+              tone="yellow"
+              value={cfg.ave_trade_api_key}
+              onChangeKey={v => set('ave_trade_api_key', v)}
+              urlValue={cfg.ave_trade_api_url}
+              onChangeUrl={v => set('ave_trade_api_url', v)}
+              keyPlaceholder={t('config.api.key_placeholder_trade')}
+              keyLabel={t('config.api.key')}
+              urlLabel={t('config.api.base_url')}
+              setLabel={t('config.api.key_set')}
+            />
+            <ApiKeyBlock
+              title={t('config.api.data_title')}
+              badge={t('config.api.data_badge')}
+              tone="blue"
+              value={cfg.ave_data_api_key}
+              onChangeKey={v => set('ave_data_api_key', v)}
+              urlValue={cfg.ave_data_api_url}
+              onChangeUrl={v => set('ave_data_api_url', v)}
+              keyPlaceholder={t('config.api.key_placeholder_data')}
+              keyLabel={t('config.api.key')}
+              urlLabel={t('config.api.base_url')}
+              setLabel={t('config.api.key_set')}
             />
           </div>
-          <div className="border-t border-dark-700/50" />
-          <label className="text-xs text-gray-400">持仓估值价格来源</label>
-          <div className="flex gap-2 mt-1">
-            {[
-              { value: 'cached', label: '缓存价格', hint: '用监控器最近一次轮询价（延迟≤10秒），不消耗 API' },
-              { value: 'realtime', label: '实时价格', hint: '点击刷新时调用 AVE API 获取最新价，每个持仓消耗一次请求' },
-            ].map(opt => (
+        </Card>
+
+      </div>
+      {/* ──────── Column 2: Trade & Chain ──────── */}
+      <div className="cp-cfg-col">
+        <div className="cp-cfg-col-head">{t('config.col_trade')}</div>
+
+        {/* ── Trade params ── */}
+        <Card className="cp-cfg-card">
+          <SectionHeader title={t('config.trade.title')} />
+          <div className="grid md:grid-cols-2 gap-5">
+            <NumberInput
+              label={t('config.trade.buy_amount')}
+              value={cfg.buy_amount_usdt}
+              onChange={v => set('buy_amount_usdt', v)}
+              min={0.1} max={100} step={0.1}
+              hint={t('config.trade.buy_amount_hint')}
+            />
+            <NumberInput
+              label={t('config.trade.max_concurrent')}
+              value={cfg.max_concurrent_positions}
+              onChange={v => set('max_concurrent_positions', v)}
+              min={1} max={20}
+              hint={t('config.trade.max_concurrent_hint')}
+            />
+          </div>
+
+          <Subcard>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="cp-modal-label !mb-1">{t('config.trade.fallback_title')}</p>
+                <p className="cp-hint">{t('config.trade.fallback_desc')}</p>
+              </div>
+              <Toggle
+                checked={cfg.buy_amount_fallback_enabled === 'true'}
+                onChange={v => set('buy_amount_fallback_enabled', v ? 'true' : 'false')}
+              />
+            </div>
+            {cfg.buy_amount_fallback_enabled === 'true' && (
+              <div className="mt-4">
+                <NumberInput
+                  label={t('config.trade.fallback_amount')}
+                  value={cfg.buy_amount_fallback_usdt}
+                  onChange={v => set('buy_amount_fallback_usdt', v)}
+                  min={1} max={100} step={0.5}
+                  hint={t('config.trade.fallback_amount_hint', { base: cfg.buy_amount_usdt })}
+                />
+              </div>
+            )}
+          </Subcard>
+
+          <Subcard>
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div className="flex-1 min-w-0">
+                <p className="cp-modal-label !mb-1">{t('config.trade.precheck_title')}</p>
+                <p className="cp-hint">{t('config.trade.precheck_desc')}</p>
+              </div>
+              <Toggle
+                checked={cfg.buy_precheck_enabled === 'true'}
+                onChange={v => set('buy_precheck_enabled', v ? 'true' : 'false')}
+              />
+            </div>
+            {cfg.buy_precheck_enabled === 'true'
+              ? <InfoBanner icon="check" tone="green">{t('config.trade.precheck_on')}</InfoBanner>
+              : <InfoBanner icon="alert" tone="yellow">{t('config.trade.precheck_off')}</InfoBanner>}
+          </Subcard>
+
+          <div className="mt-5">
+            <NumberInput
+              label={t('config.trade.cooldown')}
+              value={cfg.buy_fail_cooldown_seconds}
+              onChange={v => set('buy_fail_cooldown_seconds', v)}
+              min={0} max={3600} step={30}
+              hint={t('config.trade.cooldown_hint')}
+            />
+          </div>
+
+          <Subcard>
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div className="flex-1 min-w-0">
+                <p className="cp-modal-label !mb-1">{t('config.trade.bnb_title')}</p>
+                <p className="cp-hint">{t('config.trade.bnb_desc')}</p>
+              </div>
+              <Toggle
+                checked={cfg.buy_with_bnb_fallback_enabled === 'true'}
+                onChange={v => set('buy_with_bnb_fallback_enabled', v ? 'true' : 'false')}
+              />
+            </div>
+            {cfg.buy_with_bnb_fallback_enabled === 'true'
+              ? <InfoBanner icon="check" tone="green">{t('config.trade.bnb_on')}</InfoBanner>
+              : <InfoBanner icon="info" tone="gray">{t('config.trade.bnb_off')}</InfoBanner>}
+          </Subcard>
+        </Card>
+
+        {/* ── Sell strategy ── */}
+        <Card className="cp-cfg-card">
+          <SectionHeader title={t('config.sell.title')} />
+          <div className="grid md:grid-cols-3 gap-5">
+            <NumberInput
+              label={t('config.sell.tp')}
+              value={cfg.take_profit_pct}
+              onChange={v => set('take_profit_pct', v)}
+              min={1} max={10000}
+              hint={t('config.sell.tp_hint')}
+            />
+            <NumberInput
+              label={t('config.sell.sl')}
+              value={cfg.stop_loss_pct}
+              onChange={v => set('stop_loss_pct', v)}
+              min={1} max={100}
+              hint={t('config.sell.sl_hint')}
+            />
+            <NumberInput
+              label={t('config.sell.max_hold')}
+              value={cfg.max_hold_minutes}
+              onChange={v => set('max_hold_minutes', v)}
+              min={1} max={1440}
+              hint={t('config.sell.max_hold_hint')}
+            />
+          </div>
+        </Card>
+
+        {/* ── Spend limit ── */}
+        <Card className="cp-cfg-card">
+          <SectionHeader
+            title={t('config.spend.title')}
+            desc={t('config.spend.desc')}
+            action={<Toggle checked={isEnabled('spend_limit_enabled')} onChange={v => setEnabled('spend_limit_enabled', v)} />}
+          />
+          <div className={clsx('grid md:grid-cols-2 gap-5', !isEnabled('spend_limit_enabled') && 'opacity-40')}>
+            <NumberInput
+              label={t('config.spend.limit')}
+              value={cfg.spend_limit_usdt}
+              onChange={v => set('spend_limit_usdt', v)}
+              min={1} max={99999}
+              hint={t('config.spend.limit_hint')}
+              disabled={!isEnabled('spend_limit_enabled')}
+            />
+            <NumberInput
+              label={t('config.spend.window')}
+              value={cfg.spend_limit_hours}
+              onChange={v => set('spend_limit_hours', v)}
+              min={1} max={168}
+              hint={t('config.spend.window_hint')}
+              disabled={!isEnabled('spend_limit_enabled')}
+            />
+          </div>
+        </Card>
+
+        {/* ── Repeat-buy ── */}
+        <Card className="cp-cfg-card">
+          <SectionHeader title={t('config.repeat.title')} />
+          <div className="cp-cfg-divided-rows">
+            <div className="cp-cfg-row">
+              <div className="flex-1 min-w-0">
+                <p className="cp-modal-label !mb-1">{t('config.repeat.allow')}</p>
+                <p className="cp-hint">{t('config.repeat.allow_desc')}</p>
+              </div>
+              <Toggle
+                checked={cfg.ca_repeat_buy_enabled === 'true'}
+                onChange={v => set('ca_repeat_buy_enabled', v ? 'true' : 'false')}
+              />
+            </div>
+          </div>
+          {cfg.ca_repeat_buy_enabled === 'true' && (
+            <Subcard>
+              <NumberInput
+                label={t('config.repeat.delta')}
+                value={cfg.ca_repeat_qwfc_delta}
+                onChange={v => set('ca_repeat_qwfc_delta', v)}
+                min={5} max={200} step={5}
+                hint={t('config.repeat.delta_hint')}
+              />
+              <p className="cp-hint">{t('config.repeat.delta_example')}</p>
+            </Subcard>
+          )}
+        </Card>
+
+        {/* ── Chains + GAS + broadcast ── */}
+        <Card className="cp-cfg-card">
+          <SectionHeader title={t('config.chain.title')} />
+          <div className="flex flex-wrap gap-3 mb-5">
+            {CHAIN_OPTIONS.map(chain => (
               <button
-                key={opt.value}
-                title={opt.hint}
-                onClick={() => set('position_price_source', opt.value)}
-                className={clsx(
-                  'flex-1 text-xs py-2 px-3 rounded-lg border transition-colors text-left',
-                  cfg.position_price_source === opt.value
-                    ? 'border-accent-blue bg-accent-blue/10 text-accent-blue'
-                    : 'border-dark-500 text-gray-500 hover:text-gray-300'
-                )}
+                key={chain}
+                onClick={() => toggleChain(chain)}
+                className={clsx('cp-chip !px-5 !py-2 !text-[13px]', enabledChainsArr.includes(chain) && 'cp-chip-active')}
               >
-                <div className="font-medium">{opt.label}</div>
-                <div className="text-[10px] mt-0.5 opacity-70 leading-tight">{opt.hint}</div>
+                {chain}
               </button>
             ))}
           </div>
-        </div>
-      </Card>
-
-      {/* ── 购买过滤条件 ───────────────────────────────────────── */}
-
-      {/* 发币人质量 */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-1">过滤条件 · 发币人质量</h3>
-        <p className="text-xs text-gray-600 mb-3">全部勾选条件须同时满足才会买入</p>
-        <div className="space-y-3">
-          <FilterRow
-            label="全局胜率 ≥"
-            enabled={isEnabled('filter_sender_win_rate_enabled')}
-            onToggle={v => setEnabled('filter_sender_win_rate_enabled', v)}
-            value={cfg.filter_sender_win_rate_min}
-            onChange={v => set('filter_sender_win_rate_min', v)}
-            unit="%" min={1} max={100}
-            hint="发币人历史中涨20%以上的比例"
-          />
-          <FilterRow
-            label="群胜率 ≥"
-            enabled={isEnabled('filter_sender_group_win_rate_enabled')}
-            onToggle={v => setEnabled('filter_sender_group_win_rate_enabled', v)}
-            value={cfg.filter_sender_group_win_rate_min}
-            onChange={v => set('filter_sender_group_win_rate_min', v)}
-            unit="%" min={1} max={100}
-            hint="发币人在本群的胜率（字段上线后生效）"
-          />
-          <FilterRow
-            label="历史发币数 ≥"
-            enabled={isEnabled('filter_sender_total_tokens_enabled')}
-            onToggle={v => setEnabled('filter_sender_total_tokens_enabled', v)}
-            value={cfg.filter_sender_total_tokens_min}
-            onChange={v => set('filter_sender_total_tokens_min', v)}
-            unit="个" min={1} max={999}
-            hint="样本量不足时胜率参考价值低"
-          />
-          <FilterRow
-            label="历史最高倍数 ≥"
-            enabled={isEnabled('filter_sender_best_multiple_enabled')}
-            onToggle={v => setEnabled('filter_sender_best_multiple_enabled', v)}
-            value={cfg.filter_sender_best_multiple_min}
-            onChange={v => set('filter_sender_best_multiple_min', v)}
-            unit="x" min={1} max={10000}
-            hint="历史至少出过一次大涨"
+          <NumberInput
+            label={t('config.chain.poll_interval')}
+            value={cfg.price_poll_interval}
+            onChange={v => set('price_poll_interval', v)}
+            min={5} max={60}
+            hint={t('config.chain.poll_interval_hint')}
           />
 
-          {/* 新人处理策略 */}
-          <div className="pt-2 border-t border-dark-600">
-            <label className="block text-xs text-gray-500 mb-2">
-              无历史记录的新发币人处理方式
-            </label>
-            <div className="flex gap-2">
+          <div className="mt-6 pt-5 border-t border-accent-green/15">
+            <p className="cp-section-label !text-[12px] !mb-4">{t('config.chain.gas_title')}</p>
+            <div className="grid md:grid-cols-2 gap-5">
+              <NumberInput
+                label={t('config.chain.swap_mult')}
+                value={cfg.gas_price_multiplier}
+                onChange={v => set('gas_price_multiplier', v)}
+                min={0.1} max={5.0} step={0.1}
+                hint={t('config.chain.swap_mult_hint')}
+              />
+              <NumberInput
+                label={t('config.chain.approve_gwei')}
+                value={cfg.approve_gas_price_gwei}
+                onChange={v => set('approve_gas_price_gwei', v)}
+                min={0.05} max={10.0} step={0.05}
+                hint={t('config.chain.approve_gwei_hint')}
+              />
+            </div>
+
+            <Subcard>
+              <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <p className="cp-modal-label !mb-1">{t('config.chain.broadcast_title')}</p>
+                  <p className="cp-hint">{t('config.chain.broadcast_desc')}</p>
+                </div>
+                <div className="flex gap-2">
+                  {[
+                    { val: 'ave',    label: t('config.chain.broadcast_ave'),    desc: t('config.chain.broadcast_ave_desc') },
+                    { val: 'direct', label: t('config.chain.broadcast_direct'), desc: t('config.chain.broadcast_direct_desc') },
+                  ].map(m => (
+                    <button
+                      key={m.val}
+                      onClick={() => set('broadcast_mode', m.val)}
+                      title={m.desc}
+                      className={clsx('cp-chip !text-[12px]', cfg.broadcast_mode === m.val && 'cp-chip-active')}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {cfg.broadcast_mode === 'direct'
+                ? <InfoBanner icon="check" tone="green">{t('config.chain.broadcast_direct_note')}</InfoBanner>
+                : <InfoBanner icon="info"  tone="gray">{t('config.chain.broadcast_ave_note')}</InfoBanner>}
+            </Subcard>
+          </div>
+        </Card>
+      </div>
+
+      {/* ──────── Column 3: Filters ──────── */}
+      <div className="cp-cfg-col">
+        <div className="cp-cfg-col-head">{t('config.col_filter')}</div>
+
+        {/* ── Filters (all 5 categories merged into one card) ── */}
+        <Card className="cp-cfg-card">
+          <SectionHeader title={t('config.sender.title').split(' · ')[0]} desc={t('config.sender.desc')} />
+
+          {/* Sub-section: Sender quality */}
+          <div className="cp-cfg-subhead">{t('config.sender.title').split(' · ')[1] || t('config.sender.title')}</div>
+          <div className="cp-filter-list">
+            <FilterRow
+              label={t('config.sender.global_winrate')}
+              enabled={isEnabled('filter_sender_win_rate_enabled')}
+              onToggle={v => setEnabled('filter_sender_win_rate_enabled', v)}
+              value={cfg.filter_sender_win_rate_min}
+              onChange={v => set('filter_sender_win_rate_min', v)}
+              unit={t('config.unit.pct')} min={1} max={100}
+              hint={t('config.sender.global_winrate_hint')}
+            />
+            <FilterRow
+              label={t('config.sender.group_winrate')}
+              enabled={isEnabled('filter_sender_group_win_rate_enabled')}
+              onToggle={v => setEnabled('filter_sender_group_win_rate_enabled', v)}
+              value={cfg.filter_sender_group_win_rate_min}
+              onChange={v => set('filter_sender_group_win_rate_min', v)}
+              unit={t('config.unit.pct')} min={1} max={100}
+              hint={t('config.sender.group_winrate_hint')}
+            />
+            <FilterRow
+              label={t('config.sender.total_tokens')}
+              enabled={isEnabled('filter_sender_total_tokens_enabled')}
+              onToggle={v => setEnabled('filter_sender_total_tokens_enabled', v)}
+              value={cfg.filter_sender_total_tokens_min}
+              onChange={v => set('filter_sender_total_tokens_min', v)}
+              unit={t('config.unit.count')} min={1} max={999}
+              hint={t('config.sender.total_tokens_hint')}
+            />
+            <FilterRow
+              label={t('config.sender.best_mult')}
+              enabled={isEnabled('filter_sender_best_multiple_enabled')}
+              onToggle={v => setEnabled('filter_sender_best_multiple_enabled', v)}
+              value={cfg.filter_sender_best_multiple_min}
+              onChange={v => set('filter_sender_best_multiple_min', v)}
+              unit={t('config.unit.x')} min={1} max={10000}
+              hint={t('config.sender.best_mult_hint')}
+            />
+          </div>
+          <div className="mt-5">
+            <p className="cp-modal-label !mb-3">{t('config.sender.new_sender')}</p>
+            <div className="grid grid-cols-3 gap-3">
               {[
-                { v: 'skip', label: '跳过', desc: '直接不买' },
-                { v: 'allow', label: '正常买', desc: '忽略胜率条件' },
-                { v: 'half', label: '半仓买', desc: '金额减半' },
+                { v: 'skip',  label: t('config.sender.new_skip'),  desc: t('config.sender.new_skip_desc') },
+                { v: 'allow', label: t('config.sender.new_allow'), desc: t('config.sender.new_allow_desc') },
+                { v: 'half',  label: t('config.sender.new_half'),  desc: t('config.sender.new_half_desc') },
               ].map(opt => (
                 <button
                   key={opt.v}
                   onClick={() => set('filter_new_sender_action', opt.v)}
-                  title={opt.desc}
-                  className={clsx(
-                    'flex-1 py-1.5 rounded-lg text-xs border transition-colors',
-                    cfg.filter_new_sender_action === opt.v
-                      ? 'bg-accent-blue/20 border-accent-blue text-accent-blue'
-                      : 'bg-dark-700 border-dark-500 text-gray-500 hover:text-gray-300'
-                  )}
+                  className={clsx('cp-chip cp-chip-stack', cfg.filter_new_sender_action === opt.v && 'cp-chip-active')}
                 >
-                  {opt.label}
-                  <span className="block text-gray-600 text-[10px]">{opt.desc}</span>
+                  <span>{opt.label}</span>
+                  <span className="cp-chip-sub">{opt.desc}</span>
                 </button>
               ))}
             </div>
           </div>
-        </div>
-      </Card>
 
-      {/* 防追高 */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">过滤条件 · 防追高</h3>
-        <FilterRow
-          label="当前涨幅 ≤"
-          enabled={isEnabled('filter_current_multiple_enabled')}
-          onToggle={v => setEnabled('filter_current_multiple_enabled', v)}
-          value={cfg.filter_current_multiple_max}
-          onChange={v => set('filter_current_multiple_max', v)}
-          unit="x" min={0.1} max={100} step={0.1}
-          hint="CA推送时已涨超此倍数则跳过（来源：cxrzf字段）"
-        />
-      </Card>
+          <div className="cp-cfg-divider" />
 
-      {/* 传播热度 */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">过滤条件 · 传播热度</h3>
-        <div className="space-y-3">
-          <FilterRow
-            label="全网发送次数 ≥"
-            enabled={isEnabled('filter_qwfc_enabled')}
-            onToggle={v => setEnabled('filter_qwfc_enabled', v)}
-            value={cfg.filter_qwfc_min}
-            onChange={v => set('filter_qwfc_min', v)}
-            unit="次" min={1} max={999}
-            hint="全网各群发送该CA的次数"
-          />
-          <FilterRow
-            label="本群发送次数 ≥"
-            enabled={isEnabled('filter_bqfc_enabled')}
-            onToggle={v => setEnabled('filter_bqfc_enabled', v)}
-            value={cfg.filter_bqfc_min}
-            onChange={v => set('filter_bqfc_min', v)}
-            unit="次" min={1} max={999}
-            hint="当前群内发送次数"
-          />
-          <FilterRow
-            label="覆盖群数量 ≥"
-            enabled={isEnabled('filter_fgq_enabled')}
-            onToggle={v => setEnabled('filter_fgq_enabled', v)}
-            value={cfg.filter_fgq_min}
-            onChange={v => set('filter_fgq_min', v)}
-            unit="个群" min={1} max={999}
-            hint="在多少个群里被提到"
-          />
-          <FilterRow
-            label="个人查询次数 ≥"
-            enabled={isEnabled('filter_grcxcs_enabled')}
-            onToggle={v => setEnabled('filter_grcxcs_enabled', v)}
-            value={cfg.filter_grcxcs_min}
-            onChange={v => set('filter_grcxcs_min', v)}
-            unit="次" min={1} max={999}
-            hint="被个人主动查询的次数"
-          />
-        </div>
-      </Card>
-
-      {/* 市场数据 */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">过滤条件 · 市场数据</h3>
-        <div className="space-y-3">
-          {/* 市值范围 */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                type="checkbox"
-                id="mc-enabled"
-                checked={isEnabled('filter_market_cap_enabled')}
-                onChange={e => setEnabled('filter_market_cap_enabled', e.target.checked)}
-                className="accent-accent-blue"
-              />
-              <label htmlFor="mc-enabled" className="text-xs text-gray-300 cursor-pointer">
-                市值范围 (U)
-              </label>
-            </div>
-            <div className={clsx('grid grid-cols-2 gap-2', !isEnabled('filter_market_cap_enabled') && 'opacity-40')}>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">最小</label>
-                <input type="number" value={cfg.filter_market_cap_min}
-                  onChange={e => set('filter_market_cap_min', e.target.value)}
-                  disabled={!isEnabled('filter_market_cap_enabled')}
-                  className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-accent-blue disabled:cursor-not-allowed" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">最大（0=不限）</label>
-                <input type="number" value={cfg.filter_market_cap_max}
-                  onChange={e => set('filter_market_cap_max', e.target.value)}
-                  disabled={!isEnabled('filter_market_cap_enabled')}
-                  className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-accent-blue disabled:cursor-not-allowed" />
-              </div>
-            </div>
-          </div>
-          <FilterRow
-            label="5分钟涨幅 ≥"
-            enabled={isEnabled('filter_price_change_5m_enabled')}
-            onToggle={v => setEnabled('filter_price_change_5m_enabled', v)}
-            value={cfg.filter_price_change_5m_min}
-            onChange={v => set('filter_price_change_5m_min', v)}
-            unit="%" min={-100} max={10000} step={1}
-            hint="正数=已在涨，负数=允许微跌"
-          />
-          <FilterRow
-            label="1小时买入量 ≥"
-            enabled={isEnabled('filter_buy_volume_1h_enabled')}
-            onToggle={v => setEnabled('filter_buy_volume_1h_enabled', v)}
-            value={cfg.filter_buy_volume_1h_min}
-            onChange={v => set('filter_buy_volume_1h_min', v)}
-            unit="U" min={0} max={9999999}
-            hint="有足够买盘才入"
-          />
-          <FilterRow
-            label="持有人数 ≥"
-            enabled={isEnabled('filter_holders_enabled')}
-            onToggle={v => setEnabled('filter_holders_enabled', v)}
-            value={cfg.filter_holders_min}
-            onChange={v => set('filter_holders_min', v)}
-            unit="人" min={1} max={99999}
-            hint="持有人太少流动性差"
-          />
-        </div>
-      </Card>
-
-      {/* 安全过滤 */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">过滤条件 · 安全（建议常开）</h3>
-        <div className="space-y-3">
-          {/* 蜜罐：两个独立开关，互不依赖 */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-300">排除确认蜜罐 <span className="text-red-400 font-mono text-[10px]">is_honeypot=1</span></p>
-              <p className="text-xs text-gray-600">已被检测为蜜罐的代币直接跳过（强烈推荐开启）</p>
-            </div>
-            <Toggle
-              checked={isEnabled('filter_honeypot_enabled')}
-              onChange={v => setEnabled('filter_honeypot_enabled', v)}
+          {/* Sub-section: Anti-FOMO */}
+          <div className="cp-cfg-subhead">{t('config.anti_fomo.title').split(' · ')[1] || t('config.anti_fomo.title')}</div>
+          <div className="cp-filter-list">
+            <FilterRow
+              label={t('config.anti_fomo.current_mult')}
+              enabled={isEnabled('filter_current_multiple_enabled')}
+              onToggle={v => setEnabled('filter_current_multiple_enabled', v)}
+              value={cfg.filter_current_multiple_max}
+              onChange={v => set('filter_current_multiple_max', v)}
+              unit={t('config.unit.x')} min={0.1} max={100} step={0.1}
+              hint={t('config.anti_fomo.current_mult_hint')}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-300">排除未检测代币 <span className="text-orange-400 font-mono text-[10px]">is_honeypot=-1</span></p>
-              <p className="text-xs text-gray-600">新币上线初期尚未被检测，此类代币貔貅风险高</p>
+
+          <div className="cp-cfg-divider" />
+
+          {/* Sub-section: Heat */}
+          <div className="cp-cfg-subhead">{t('config.heat.title').split(' · ')[1] || t('config.heat.title')}</div>
+          <div className="cp-filter-list">
+            <FilterRow
+              label={t('config.heat.global_count')}
+              enabled={isEnabled('filter_qwfc_enabled')}
+              onToggle={v => setEnabled('filter_qwfc_enabled', v)}
+              value={cfg.filter_qwfc_min}
+              onChange={v => set('filter_qwfc_min', v)}
+              unit={t('config.unit.times')} min={1} max={999}
+              hint={t('config.heat.global_count_hint')}
+            />
+            <FilterRow
+              label={t('config.heat.local_count')}
+              enabled={isEnabled('filter_bqfc_enabled')}
+              onToggle={v => setEnabled('filter_bqfc_enabled', v)}
+              value={cfg.filter_bqfc_min}
+              onChange={v => set('filter_bqfc_min', v)}
+              unit={t('config.unit.times')} min={1} max={999}
+              hint={t('config.heat.local_count_hint')}
+            />
+            <FilterRow
+              label={t('config.heat.groups')}
+              enabled={isEnabled('filter_fgq_enabled')}
+              onToggle={v => setEnabled('filter_fgq_enabled', v)}
+              value={cfg.filter_fgq_min}
+              onChange={v => set('filter_fgq_min', v)}
+              unit={t('config.unit.groups')} min={1} max={999}
+              hint={t('config.heat.groups_hint')}
+            />
+            <FilterRow
+              label={t('config.heat.queries')}
+              enabled={isEnabled('filter_grcxcs_enabled')}
+              onToggle={v => setEnabled('filter_grcxcs_enabled', v)}
+              value={cfg.filter_grcxcs_min}
+              onChange={v => set('filter_grcxcs_min', v)}
+              unit={t('config.unit.times')} min={1} max={999}
+              hint={t('config.heat.queries_hint')}
+            />
+          </div>
+
+          <div className="cp-cfg-divider" />
+
+          {/* Sub-section: Market data */}
+          <div className="cp-cfg-subhead">{t('config.market.title').split(' · ')[1] || t('config.market.title')}</div>
+          <div className={clsx('mb-4', !isEnabled('filter_market_cap_enabled') && 'opacity-60')}>
+            <div className="flex items-center gap-3 mb-3">
+              <button
+                type="button"
+                onClick={() => setEnabled('filter_market_cap_enabled', !isEnabled('filter_market_cap_enabled'))}
+                className={clsx('cp-checkbox', isEnabled('filter_market_cap_enabled') && 'cp-checkbox-on')}
+              >
+                {isEnabled('filter_market_cap_enabled') && <Icon name="check" className="w-3 h-3 text-accent-green" />}
+              </button>
+              <span className="cp-modal-label !mb-0">{t('config.market.mc_range')}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-gray-600">
-                {cfg.filter_honeypot_unknown_action === 'skip' ? '跳过' : '放行'}
-              </span>
+            <div className="grid md:grid-cols-2 gap-4">
+              <NumberInput
+                label={t('config.market.mc_min')}
+                value={cfg.filter_market_cap_min}
+                onChange={v => set('filter_market_cap_min', v)}
+                disabled={!isEnabled('filter_market_cap_enabled')}
+              />
+              <NumberInput
+                label={t('config.market.mc_max')}
+                value={cfg.filter_market_cap_max}
+                onChange={v => set('filter_market_cap_max', v)}
+                disabled={!isEnabled('filter_market_cap_enabled')}
+              />
+            </div>
+          </div>
+          <div className="cp-filter-list">
+            <FilterRow
+              label={t('config.market.price_5m')}
+              enabled={isEnabled('filter_price_change_5m_enabled')}
+              onToggle={v => setEnabled('filter_price_change_5m_enabled', v)}
+              value={cfg.filter_price_change_5m_min}
+              onChange={v => set('filter_price_change_5m_min', v)}
+              unit={t('config.unit.pct')} min={-100} max={10000} step={1}
+              hint={t('config.market.price_5m_hint')}
+            />
+            <FilterRow
+              label={t('config.market.buy_vol')}
+              enabled={isEnabled('filter_buy_volume_1h_enabled')}
+              onToggle={v => setEnabled('filter_buy_volume_1h_enabled', v)}
+              value={cfg.filter_buy_volume_1h_min}
+              onChange={v => set('filter_buy_volume_1h_min', v)}
+              unit={t('config.unit.u')} min={0} max={9999999}
+              hint={t('config.market.buy_vol_hint')}
+            />
+            <FilterRow
+              label={t('config.market.holders')}
+              enabled={isEnabled('filter_holders_enabled')}
+              onToggle={v => setEnabled('filter_holders_enabled', v)}
+              value={cfg.filter_holders_min}
+              onChange={v => set('filter_holders_min', v)}
+              unit={t('config.unit.people')} min={1} max={99999}
+              hint={t('config.market.holders_hint')}
+            />
+          </div>
+
+          <div className="cp-cfg-divider" />
+
+          {/* Sub-section: Safety */}
+          <div className="cp-cfg-subhead">{t('config.safety.title').split(' · ')[1] || t('config.safety.title')}</div>
+          <div className="cp-cfg-divided-rows">
+            <div className="cp-cfg-row">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="cp-modal-label !mb-1">{t('config.safety.honeypot')}</p>
+                  <code className="text-[12px] font-bold text-accent-red font-mono px-2 py-0.5 rounded border border-accent-red/40 bg-accent-red/10">is_honeypot=1</code>
+                </div>
+                <p className="cp-hint">{t('config.safety.honeypot_desc')}</p>
+              </div>
               <Toggle
-                checked={cfg.filter_honeypot_unknown_action === 'skip'}
-                onChange={v => set('filter_honeypot_unknown_action', v ? 'skip' : 'allow')}
+                checked={isEnabled('filter_honeypot_enabled')}
+                onChange={v => setEnabled('filter_honeypot_enabled', v)}
+              />
+            </div>
+            <div className="cp-cfg-row">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="cp-modal-label !mb-1">{t('config.safety.unknown')}</p>
+                  <code className="text-[12px] font-bold text-accent-yellow font-mono px-2 py-0.5 rounded border border-accent-yellow/40 bg-accent-yellow/10">is_honeypot=-1</code>
+                </div>
+                <p className="cp-hint">{t('config.safety.unknown_desc')}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[13px] font-bold text-gray-200 font-mono tracking-wide uppercase">
+                  {cfg.filter_honeypot_unknown_action === 'skip' ? t('config.safety.unknown_action_skip') : t('config.safety.unknown_action_allow')}
+                </span>
+                <Toggle
+                  checked={cfg.filter_honeypot_unknown_action === 'skip'}
+                  onChange={v => set('filter_honeypot_unknown_action', v ? 'skip' : 'allow')}
+                />
+              </div>
+            </div>
+            <div className="cp-cfg-row">
+              <div className="flex-1 min-w-0">
+                <p className="cp-modal-label !mb-1">{t('config.safety.mintable')}</p>
+                <p className="cp-hint">{t('config.safety.mintable_desc')}</p>
+              </div>
+              <Toggle
+                checked={isEnabled('filter_mintable_enabled')}
+                onChange={v => setEnabled('filter_mintable_enabled', v)}
               />
             </div>
           </div>
-          <p className="text-[10px] text-gray-600 -mt-1 pl-0.5">
+          <div className="mt-3">
             {cfg.filter_honeypot_unknown_action === 'skip'
-              ? '⚠ 未检测代币一律跳过，更安全但会错过部分新上线代币'
-              : '⚠ 放行未检测代币——貔貅损失风险高，建议仅短期测试使用'}
-          </p>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-300">排除可增发代币</p>
-              <p className="text-xs text-gray-600">is_mintable = 1 则跳过</p>
-            </div>
-            <Toggle
-              checked={isEnabled('filter_mintable_enabled')}
-              onChange={v => setEnabled('filter_mintable_enabled', v)}
+              ? <InfoBanner icon="alert" tone="gray">{t('config.safety.unknown_skip_warn')}</InfoBanner>
+              : <InfoBanner icon="alert" tone="yellow">{t('config.safety.unknown_allow_warn')}</InfoBanner>}
+          </div>
+          <div className="cp-filter-list mt-4">
+            <FilterRow
+              label={t('config.safety.risk')}
+              enabled={isEnabled('filter_risk_score_enabled')}
+              onToggle={v => setEnabled('filter_risk_score_enabled', v)}
+              value={cfg.filter_risk_score_max}
+              onChange={v => set('filter_risk_score_max', v)}
+              unit={t('config.unit.score')} min={1} max={100}
+              hint={t('config.safety.risk_hint')}
+            />
+            <FilterRow
+              label={t('config.safety.max_holder')}
+              enabled={isEnabled('filter_max_holder_pct_enabled')}
+              onToggle={v => setEnabled('filter_max_holder_pct_enabled', v)}
+              value={cfg.filter_max_holder_pct_max}
+              onChange={v => set('filter_max_holder_pct_max', v)}
+              unit={t('config.unit.pct')} min={1} max={100}
+              hint={t('config.safety.max_holder_hint')}
             />
           </div>
-          <FilterRow
-            label="风险评分 ≤"
-            enabled={isEnabled('filter_risk_score_enabled')}
-            onToggle={v => setEnabled('filter_risk_score_enabled', v)}
-            value={cfg.filter_risk_score_max}
-            onChange={v => set('filter_risk_score_max', v)}
-            unit="分" min={1} max={100}
-            hint="AVE风险评分，越低越安全"
-          />
-          <FilterRow
-            label="最大持仓比 ≤"
-            enabled={isEnabled('filter_max_holder_pct_enabled')}
-            onToggle={v => setEnabled('filter_max_holder_pct_enabled', v)}
-            value={cfg.filter_max_holder_pct_max}
-            onChange={v => set('filter_max_holder_pct_max', v)}
-            unit="%" min={1} max={100}
-            hint="zzb字段，防庄家集中控盘"
-          />
-        </div>
-      </Card>
-
-      {/* 支出限额 */}
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-200">支出限额</h3>
-            <p className="text-xs text-gray-500 mt-0.5">时间窗口内累计买入不超过设定金额</p>
-          </div>
-          <Toggle
-            checked={isEnabled('spend_limit_enabled')}
-            onChange={v => setEnabled('spend_limit_enabled', v)}
-          />
-        </div>
-        <div className={clsx('grid grid-cols-2 gap-4', !isEnabled('spend_limit_enabled') && 'opacity-40')}>
-          <NumberInput
-            label="限额 (USDT)"
-            value={cfg.spend_limit_usdt}
-            onChange={v => set('spend_limit_usdt', v)}
-            min={1} max={99999}
-            hint="窗口内最多买入总金额"
-          />
-          <NumberInput
-            label="时间窗口 (小时)"
-            value={cfg.spend_limit_hours}
-            onChange={v => set('spend_limit_hours', v)}
-            min={1} max={168}
-            hint="例：24=每24小时重置"
-          />
-        </div>
-      </Card>
-
-      {/* 重复买入 */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">重复买入策略</h3>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-xs text-gray-300">允许重复买入已平仓 CA</p>
-            <p className="text-xs text-gray-600 mt-0.5">默认关闭：已买过并平仓的 CA 不再重复买入</p>
-          </div>
-          <Toggle
-            checked={cfg.ca_repeat_buy_enabled === 'true'}
-            onChange={v => set('ca_repeat_buy_enabled', v ? 'true' : 'false')}
-          />
-        </div>
-        {cfg.ca_repeat_buy_enabled === 'true' && (
-          <div className="pl-3 border-l border-dark-500 space-y-2">
-            <NumberInput
-              label="热度暴涨阈值（全网发送增量）"
-              value={cfg.ca_repeat_qwfc_delta}
-              onChange={v => set('ca_repeat_qwfc_delta', v)}
-              min={5} max={200} step={5}
-              hint="比上次推送新增多少条全网发送才触发重买（推荐 20）"
-            />
-            <p className="text-[10px] text-gray-600">
-              例：设 20 表示同一 CA 再次出现时，全网发送数比上次 +20 才重买，否则跳过
-            </p>
-          </div>
-        )}
-      </Card>
-
-      {/* 链配置 */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-200 mb-3">启用链（优先级从左到右）</h3>
-        <div className="flex gap-3">
-          {CHAIN_OPTIONS.map(chain => (
-            <button
-              key={chain}
-              onClick={() => toggleChain(chain)}
-              className={`px-4 py-2 rounded-lg text-sm font-mono border transition-colors ${
-                enabledChainsArr.includes(chain)
-                  ? 'bg-accent-blue/20 border-accent-blue text-accent-blue'
-                  : 'bg-dark-700 border-dark-500 text-gray-500'
-              }`}
-            >
-              {chain}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3">
-          <NumberInput
-            label="价格轮询间隔 (秒)"
-            value={cfg.price_poll_interval}
-            onChange={v => set('price_poll_interval', v)}
-            min={5} max={60}
-            hint="检查持仓盈亏的频率"
-          />
-        </div>
-
-        {/* GAS 费优化配置 */}
-        <div className="mt-4 pt-4 border-t border-dark-600">
-          <p className="text-xs font-semibold text-gray-400 mb-3">GAS 费优化</p>
-          <div className="grid grid-cols-2 gap-3">
-            <NumberInput
-              label="Swap GasPrice 倍数"
-              value={cfg.gas_price_multiplier}
-              onChange={v => set('gas_price_multiplier', v)}
-              min={0.1} max={5.0} step={0.1}
-              hint="1.0=跟随网络实时价格；>1.0加速但更贵"
-            />
-            <NumberInput
-              label="Approve GasPrice (Gwei)"
-              value={cfg.approve_gas_price_gwei}
-              onChange={v => set('approve_gas_price_gwei', v)}
-              min={0.05} max={10.0} step={0.05}
-              hint="approve 一次性授权，推荐 1.0 Gwei"
-            />
-          </div>
-          {/* 广播模式切换 */}
-          <div className="mt-3 p-3 rounded-lg border border-dark-500 bg-dark-700/40">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-xs font-semibold text-gray-300">交易广播模式</p>
-                <p className="text-[10px] text-gray-500 mt-0.5">控制签名后的交易如何发送上链</p>
-              </div>
-              <div className="flex gap-1">
-                {[
-                  { val: 'ave',    label: 'AVE 广播',    desc: '经 AVE 服务器模拟验证后广播，gasPrice ≥ 1 Gwei，有 MEV 保护' },
-                  { val: 'direct', label: '直接广播',    desc: '跳过 AVE 模拟，直接 eth_sendRawTransaction，gasPrice 跟随实时网络（BSC 约 0.07 Gwei），Gas 费可降低 10-15 倍' },
-                ].map(m => (
-                  <button
-                    key={m.val}
-                    onClick={() => set('broadcast_mode', m.val)}
-                    title={m.desc}
-                    className={clsx(
-                      'px-2.5 py-1 text-[11px] rounded border transition-colors',
-                      cfg.broadcast_mode === m.val
-                        ? m.val === 'direct'
-                          ? 'border-green-600/60 text-green-400 bg-green-900/20'
-                          : 'border-accent-blue/60 text-accent-blue bg-accent-blue/10'
-                        : 'border-dark-500 text-gray-500 hover:text-gray-300'
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {cfg.broadcast_mode === 'direct' ? (
-              <p className="text-[10px] text-green-400/80">
-                ✅ 直接广播：gasPrice 跟随实时网络（BSC 当前约 0.07 Gwei），每笔 Gas 约 <strong>0.02-0.03U</strong>，比 AVE 广播便宜约 10 倍。注意：无 AVE 模拟预检，貔貅代币可能直接 revert 损失 Gas。
-              </p>
-            ) : (
-              <p className="text-[10px] text-gray-600">
-                AVE 广播：经模拟验证，可提前识别 3025 错误，gasPrice 强制 ≥ 1 Gwei，每笔 Gas 约 0.2-0.3U。
-              </p>
-            )}
-          </div>
-        </div>
-      </Card>
-      <Card>
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-200">钱包管理</h3>
-            <p className="text-xs text-gray-500 mt-0.5">新建、导入、查看各链地址</p>
-          </div>
-          <button
-            onClick={() => window.__switchTab?.('wallet')}
-            className="text-xs text-accent-blue hover:underline"
-          >
-            前往钱包管理 →
-          </button>
-        </div>
-      </Card>
-
-      {/* 保存按钮 */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? '保存中...' : saved ? '已保存 ✓' : '保存配置'}
-        </Button>
+        </Card>
       </div>
+      </div>
+
+      {walletOpen && <WalletModal onClose={() => setWalletOpen(false)} />}
     </div>
   )
 }
 
-// ── 子组件 ────────────────────────────────────────────────
-
-function FilterRow({ label, enabled, onToggle, value, onChange, unit, min, max, step = 1, hint }) {
+// ── Sub-component: API Key block ─────────────────────────────────────
+function ApiKeyBlock({ title, badge, tone, value, onChangeKey, urlValue, onChangeUrl, keyPlaceholder, keyLabel, urlLabel, setLabel }) {
   return (
-    <div className={clsx('flex items-center gap-3', !enabled && 'opacity-50')}>
-      <input
-        type="checkbox"
-        checked={enabled}
-        onChange={e => onToggle(e.target.checked)}
-        className="accent-accent-blue shrink-0"
-      />
-      <label className="text-xs text-gray-300 w-36 shrink-0 cursor-pointer" onClick={() => onToggle(!enabled)}>
-        {label}
-      </label>
-      <input
-        type="number"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        disabled={!enabled}
-        min={min} max={max} step={step}
-        className="w-24 bg-dark-700 border border-dark-500 rounded-lg px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-accent-blue disabled:cursor-not-allowed"
-      />
-      <span className="text-xs text-gray-500 w-8 shrink-0">{unit}</span>
-      {hint && <span className="text-xs text-gray-600 hidden xl:block">{hint}</span>}
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="cp-modal-label !mb-1">{title}</span>
+        <span className={clsx('cp-pill', tone === 'yellow' ? 'cp-pill-yellow' : 'cp-pill-blue')}>{badge}</span>
+      </div>
+      {value === '__set__' ? (
+        <div className="cp-input-locked">
+          <Icon name="lock" className="w-3.5 h-3.5 text-accent-green/70" />
+          <span className="text-[14px] text-gray-200 font-mono tracking-wide font-semibold">{setLabel}</span>
+        </div>
+      ) : (
+        <>
+          <div>
+            <label className="cp-modal-label">{keyLabel}</label>
+            <input
+              type="password"
+              value={value}
+              onChange={e => onChangeKey(e.target.value)}
+              placeholder={keyPlaceholder}
+              className="cp-input"
+            />
+          </div>
+          <div>
+            <label className="cp-modal-label">{urlLabel}</label>
+            <input
+              type="text"
+              value={urlValue}
+              onChange={e => onChangeUrl(e.target.value)}
+              className="cp-input"
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }
 
-function NumberInput({ label, value, onChange, min, max, step = 1, hint }) {
-  return (
-    <div>
-      <label className="block text-xs text-gray-500 mb-1">{label}</label>
-      <input
-        type="number"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        min={min}
-        max={max}
-        step={step}
-        className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-accent-blue"
-      />
-      {hint && <p className="text-xs text-gray-600 mt-0.5">{hint}</p>}
-    </div>
-  )
-}
-
-// ── Gas 分析面板 ──────────────────────────────────────────────────────────────
-const REASON_ICON_G = {
-  take_profit: '🎯', stop_loss: '🛡', time_limit: '⏰',
-  manual: '👆', zero_balance: '💀', sell_failed: '⚠',
+// ── Gas analysis panel (kept for /tab=gas usage) ─────────────────────
+const REASON_ICON_NAME_G = {
+  take_profit: 'target', stop_loss: 'shield', time_limit: 'clock',
+  manual: 'pointer', zero_balance: 'skull', sell_failed: 'alert',
 }
 const REASON_ZH_G = {
   take_profit: '止盈', stop_loss: '止损', time_limit: '超时',
@@ -1160,7 +912,6 @@ export function GasAnalysisPanel() {
     Promise.all([getTradeHistory(100, 0), getTradeStats()])
       .then(([t, s]) => { setTrades(t); setStats(s) })
       .catch(() => {})
-    // 查询当前 BSC 网络 gas price
     fetch('https://bsc-dataseed1.binance.org', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1179,7 +930,6 @@ export function GasAnalysisPanel() {
   const avgGas = withGas.length ? totalGas / withGas.length : 0
   const totalNet = withGas.reduce((s, t) => s + (t.pnl_usdt || 0) - t.gas_fee_usd, 0)
 
-  // 按原因分组统计
   const byReason = withGas.reduce((acc, t) => {
     const k = t.reason
     if (!acc[k]) acc[k] = { count: 0, totalGas: 0, totalPnl: 0 }
@@ -1194,7 +944,6 @@ export function GasAnalysisPanel() {
 
   return (
     <div className="space-y-4">
-      {/* 实时 Gas Price */}
       <Card>
         <h3 className="text-sm font-semibold text-gray-200 mb-3">实时网络 Gas Price</h3>
         <div className="flex items-center gap-4">
@@ -1207,12 +956,10 @@ export function GasAnalysisPanel() {
           <div className="flex-1 text-xs text-gray-500 space-y-1">
             <div>当前设置 multiplier <span className="text-gray-300 font-mono">×1.2</span> → 实际约 <span className="font-mono text-orange-300">{liveGas != null ? (liveGas * 1.2).toFixed(4) : '…'} Gwei</span></div>
             <div>每笔 swap (300k gas) 预估 ≈ <span className="font-mono text-orange-300">{liveGas != null ? (300000 * liveGas * 1.2 / 1e9 * 600).toFixed(5) : '…'}U</span>（BNB@600U）</div>
-            <div className="text-gray-600">↑ 历史最高 0.3 Gwei时：每笔约 0.054U；修复前1 Gwei时：每笔约 0.18U</div>
           </div>
         </div>
       </Card>
 
-      {/* 汇总统计 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Gas 总计', value: `${totalGas.toFixed(3)}U`, color: 'text-orange-400' },
@@ -1227,13 +974,14 @@ export function GasAnalysisPanel() {
         ))}
       </div>
 
-      {/* 按原因分组 */}
       <Card>
         <h3 className="text-sm font-semibold text-gray-200 mb-3">按卖出原因统计</h3>
         <div className="space-y-2">
           {Object.entries(byReason).sort((a, b) => b[1].totalGas - a[1].totalGas).map(([reason, d]) => (
             <div key={reason} className="flex items-center gap-3 text-xs">
-              <span className="w-4 shrink-0">{REASON_ICON_G[reason] || '•'}</span>
+              <span className="w-4 shrink-0 text-accent-green/80">
+                <Icon name={REASON_ICON_NAME_G[reason] || 'info'} className="w-3.5 h-3.5" />
+              </span>
               <span className="text-gray-300 w-10 shrink-0">{REASON_ZH_G[reason] || reason}</span>
               <span className="text-gray-500 w-8 shrink-0">{d.count}笔</span>
               <div className="flex-1 h-1.5 bg-dark-600 rounded-full overflow-hidden">
@@ -1248,7 +996,6 @@ export function GasAnalysisPanel() {
         </div>
       </Card>
 
-      {/* 每笔明细 */}
       <Card>
         <h3 className="text-sm font-semibold text-gray-200 mb-3">每笔 Gas 明细（按消耗降序）</h3>
         <div className="space-y-1.5">
@@ -1258,7 +1005,9 @@ export function GasAnalysisPanel() {
             const barPct = totalGas > 0 ? Math.min(t.gas_fee_usd / totalGas * 100, 100) : 0
             return (
               <div key={t.id} className="flex items-center gap-2 text-xs group">
-                <span className="shrink-0">{REASON_ICON_G[t.reason] || '•'}</span>
+                <span className="shrink-0 text-accent-green/80">
+                  <Icon name={REASON_ICON_NAME_G[t.reason] || 'info'} className="w-3.5 h-3.5" />
+                </span>
                 <span className="text-gray-300 w-20 shrink-0 truncate" title={display}>{display}</span>
                 <div className="flex-1 h-1.5 bg-dark-600 rounded-full overflow-hidden">
                   <div className="h-full bg-orange-500/60 rounded-full" style={{ width: `${barPct}%` }} />
@@ -1269,9 +1018,6 @@ export function GasAnalysisPanel() {
                 </span>
                 <span className="text-gray-600 w-8 text-right shrink-0 text-[10px]">
                   {REASON_ZH_G[t.reason] || t.reason}
-                </span>
-                <span className="text-gray-700 w-24 text-right shrink-0 text-[10px] hidden group-hover:block">
-                  {t.close_time ? new Date(t.close_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
                 </span>
               </div>
             )
@@ -1289,4 +1035,3 @@ export function GasAnalysisPanel() {
     </div>
   )
 }
-

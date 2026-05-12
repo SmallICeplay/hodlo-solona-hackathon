@@ -1,4 +1,4 @@
-# Holdo.AI Meme Trader — 变更日志
+# Hodlo.AI Meme Trader — 变更日志
 
 > 记录每次功能新增、Bug 修复、优化改进。最新记录在最前面。
 

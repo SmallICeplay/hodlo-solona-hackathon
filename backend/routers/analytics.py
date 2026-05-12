@@ -1168,3 +1168,33 @@ async def caller_detail(wxid: str, db: AsyncSession = Depends(get_db)):
     return {"wxid": wxid, "history": history, "follow": follow_cfg}
 
 
+# ── CoinGecko 缓存代理（避免前端直连 429）────────────────────────────────────
+import asyncio, time
+import httpx
+
+_cg_cache: dict = {}
+_CG_TTL = 120  # 2 分钟缓存
+
+async def _cg_fetch(url: str) -> dict:
+    now = time.monotonic()
+    if url in _cg_cache and now - _cg_cache[url]["ts"] < _CG_TTL:
+        return _cg_cache[url]["data"]
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        r.raise_for_status()
+        data = r.json()
+    _cg_cache[url] = {"ts": now, "data": data}
+    return data
+
+@router.get("/market/prices")
+async def market_prices():
+    return await _cg_fetch(
+        "https://api.coingecko.com/api/v3/simple/price"
+        "?ids=ethereum,binancecoin,solana&vs_currencies=usd&include_24hr_change=true"
+    )
+
+@router.get("/market/global")
+async def market_global():
+    return await _cg_fetch("https://api.coingecko.com/api/v3/global")
+
+

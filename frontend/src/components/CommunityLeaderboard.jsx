@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { clsx } from 'clsx'
 import FollowModal from './FollowModal'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 const API_URL = '/api/analytics/community_leaderboard_proxy'
 
@@ -178,48 +179,48 @@ function FollowStatsCell({ fs }) {
 // 展开详情
 function ExpandedPanel({ item }) {
   const { all, today, seven_day } = item
+  const periods = [
+    { label: '今日', d: today },
+    { label: '近7日', d: seven_day },
+    { label: '历史全部', d: all },
+  ]
   return (
-    <div className="px-5 py-4 bg-dark-800/70 border-t border-dark-700/40">
-      <div className="grid grid-cols-3 gap-4 text-xs">
-        <div className="bg-dark-700/40 rounded-lg px-3 py-2.5">
-          <div className="text-gray-500 font-medium mb-2">今日</div>
-          <div className="space-y-1 text-gray-400">
-            <div>喊单 <span className="text-gray-200">{today?.total_ca ?? 0}</span> 个</div>
-            <div>盈利 <span className="text-green-400">{today?.win_ca ?? 0}</span> 个</div>
-            <div>胜率 <span className={today?.win_rate >= 60 ? 'text-green-400 font-medium' : 'text-yellow-400 font-medium'}>{today?.win_rate?.toFixed(1) ?? '0'}%</span></div>
-            <div>均涨幅 <span className="text-accent-blue font-medium">
-              {today?.total_ca > 0 ? `+${(today.total_multiplier / today.total_ca * 100).toFixed(1)}%` : '—'}
-            </span></div>
-          </div>
-        </div>
-        <div className="bg-dark-700/40 rounded-lg px-3 py-2.5">
-          <div className="text-gray-500 font-medium mb-2">近7日</div>
-          <div className="space-y-1 text-gray-400">
-            <div>喊单 <span className="text-gray-200">{seven_day?.total_ca ?? 0}</span> 个</div>
-            <div>盈利 <span className="text-green-400">{seven_day?.win_ca ?? 0}</span> 个</div>
-            <div>胜率 <span className={seven_day?.win_rate >= 60 ? 'text-green-400 font-medium' : 'text-yellow-400 font-medium'}>{seven_day?.win_rate?.toFixed(1) ?? '0'}%</span></div>
-            <div>均涨幅 <span className="text-accent-blue font-medium">
-              {seven_day?.total_ca > 0 ? `+${(seven_day.total_multiplier / seven_day.total_ca * 100).toFixed(1)}%` : '—'}
-            </span></div>
-          </div>
-        </div>
-        <div className="bg-dark-700/40 rounded-lg px-3 py-2.5">
-          <div className="text-gray-500 font-medium mb-2">历史全部</div>
-          <div className="space-y-1 text-gray-400">
-            <div>喊单 <span className="text-gray-200">{all?.total_ca ?? 0}</span> 个</div>
-            <div>盈利 <span className="text-green-400">{all?.win_ca ?? 0}</span> 个</div>
-            <div>胜率 <span className={all?.win_rate >= 60 ? 'text-green-400 font-medium' : 'text-yellow-400 font-medium'}>{all?.win_rate?.toFixed(1) ?? '0'}%</span></div>
-            <div>均涨幅 <span className="text-accent-blue font-medium">
-              {all?.total_ca > 0 ? `+${(all.total_multiplier / all.total_ca * 100).toFixed(1)}%` : '—'}
-            </span></div>
-          </div>
-        </div>
+    <div className="cp-expanded px-5 py-4 space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {periods.map(({ label, d }) => {
+          const wr = d?.win_rate ?? 0
+          const wrColor = wr >= 60 ? '#5dffb0' : wr >= 45 ? '#fbbf24' : '#ff7d97'
+          const avgPct = d?.total_ca > 0 ? (d.total_multiplier / d.total_ca * 100) : null
+          return (
+            <div key={label} className="cp-stat-panel">
+              <div className="cp-section-label">{label}</div>
+              <div className="cp-stat-row">
+                <span className="cp-stat-key">喊单</span>
+                <span className="cp-stat-val text-gray-100">{d?.total_ca ?? 0}</span>
+              </div>
+              <div className="cp-stat-row">
+                <span className="cp-stat-key">盈利</span>
+                <span className="cp-stat-val" style={{ color: '#5dffb0' }}>{d?.win_ca ?? 0}</span>
+              </div>
+              <div className="cp-stat-row">
+                <span className="cp-stat-key">胜率</span>
+                <span className="cp-stat-val font-bold" style={{ color: wrColor }}>{wr.toFixed(1)}%</span>
+              </div>
+              <div className="cp-stat-row">
+                <span className="cp-stat-key">均涨幅</span>
+                <span className="cp-stat-val text-accent-blue">
+                  {avgPct !== null ? `+${avgPct.toFixed(1)}%` : '—'}
+                </span>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-function CommunityRow({ item, rank, expanded, onToggle, onFollowClick, isFollowing }) {
+function CommunityRow({ item, rank, expanded, onToggle, onDetail, onFollowClick, isFollowing, isSelected }) {
   const { qun_id, all, today, seven_day } = item
   const displayName = anonName(qun_id)
   const wr = all?.win_rate ?? 0
@@ -239,8 +240,11 @@ function CommunityRow({ item, rank, expanded, onToggle, onFollowClick, isFollowi
 
   const MobileCard = () => (
     <div
-      className={clsx('border-b border-dark-700/50 px-3 py-3', expanded ? 'bg-dark-700/30' : 'active:bg-white/[0.025]')}
-      onClick={onToggle}
+      className={clsx(
+        'border-b border-dark-700/50 px-3 py-3',
+        isSelected ? 'bg-accent-blue/10' : expanded ? 'bg-dark-700/30' : 'active:bg-white/[0.025]'
+      )}
+      onClick={() => onDetail(item)}
     >
       <div className="flex items-center gap-2.5">
         {/* 排名 */}
@@ -301,8 +305,11 @@ function CommunityRow({ item, rank, expanded, onToggle, onFollowClick, isFollowi
       </tr>
 
       {/* 桌面端表格行 */}
-      <tr className={clsx('hidden md:table-row border-b border-dark-700/40 transition-colors cursor-pointer', expanded ? 'bg-dark-700/30' : 'hover:bg-white/[0.025]')}
-        onClick={onToggle}>
+      <tr className={clsx(
+        'hidden md:table-row border-b border-dark-700/40 transition-colors cursor-pointer',
+        isSelected ? 'bg-accent-blue/10 hover:bg-accent-blue/15' : expanded ? 'bg-dark-700/30' : 'hover:bg-white/[0.025]'
+      )}
+        onClick={() => onDetail(item)}>
         <td className="pl-4 pr-2 py-3.5 w-12 text-center">{rankNode}</td>
         <td className="px-3 py-3.5 min-w-[140px]">
           <div className="flex items-center gap-2.5">
@@ -368,6 +375,11 @@ export default function CommunityLeaderboard() {
   const [expanded, setExpanded] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [followTarget, setFollowTarget] = useState(null)
+  const [selectedItem, setSelectedItem] = useState(null)
+
+  const openDetail = (item) => {
+    setSelectedItem(prev => (prev?.qun_id === item.qun_id ? null : item))
+  }
   const [localSort, setLocalSort] = useState({ key: 'rank', dir: 'asc' })
   const [batchConfigOpen, setBatchConfigOpen] = useState(false)
   const [batchFollowing, setBatchFollowing] = useState(false)
@@ -505,8 +517,19 @@ export default function CommunityLeaderboard() {
     { k: null,        label: '',         cls: 'w-6' },
   ]
 
+  const [nameSearch, setNameSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
+
+  const filteredData = useMemo(() => {
+    return sortedData.filter(item => {
+      const name = anonName(item.qun_id)
+      if (nameSearch && !name.toLowerCase().includes(nameSearch.toLowerCase())) return false
+      return true
+    })
+  }, [sortedData, nameSearch])
+
   return (
-    <div className="space-y-3">
+    <div className="flex h-full min-h-0">
       {/* 跟单弹窗 */}
       {followTarget && (
         <FollowModal
@@ -555,107 +578,297 @@ export default function CommunityLeaderboard() {
         </div>
       )}
 
-      {/* 头部 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-gray-200">社群胜率榜</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            微信社群综合胜率排行 · 群名已匿名化
-            {lastUpdate && (
-              <span className="ml-2">更新于 {new Date(lastUpdate).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' })}</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => { setBatchConfigOpen(true); setBatchResult(null) }} disabled={batchFollowing || loading}
-            className={clsx('text-xs px-3 py-1 rounded border transition-colors font-medium',
-              batchFollowing ? 'border-dark-500 text-gray-600 cursor-not-allowed'
-                : 'border-accent-blue/50 text-accent-blue bg-accent-blue/10 hover:bg-accent-blue/20'
-            )}>
-            {batchFollowing ? '跟单中…' : '⚡ 一键跟单'}
+      {/* ── 左侧导航 ── */}
+      <aside className="w-16 shrink-0 border-r border-dark-600 bg-dark-800 flex flex-col items-center py-6 gap-6">
+        {[
+          { label: '首页', icon: '⊞', tab: 'leaderboard' },
+          { label: '收益', icon: '◈', tab: 'dashboard' },
+          { label: '设置', icon: '⚙', tab: 'config' },
+        ].map(({ label, icon, tab }) => (
+          <button
+            key={tab}
+            onClick={() => window.__switchTab?.(tab)}
+            className="flex flex-col items-center gap-1 text-gray-500 hover:text-gray-200 transition-colors"
+          >
+            <span className="text-lg">{icon}</span>
+            <span className="text-[10px]">{label}</span>
           </button>
-          <button onClick={() => { setLoading(true); fetchData() }}
-            className="text-xs text-gray-500 hover:text-gray-300 border border-dark-600 hover:border-dark-500 px-2.5 py-1 rounded transition-colors">↻ 刷新</button>
-        </div>
-      </div>
+        ))}
+      </aside>
 
-      {/* 一键跟单结果 */}
-      {batchResult && (
-        <div className={clsx('text-xs px-3 py-2 rounded border',
-          batchResult.error ? 'bg-red-900/20 border-red-700/30 text-red-400' : 'bg-green-900/20 border-green-700/30 text-green-400'
-        )}>
-          {batchResult.error ? `一键跟单失败：${batchResult.error}` : `完成：新增 ${batchResult.added} 个，更新 ${batchResult.updated} 个`}
-          <button onClick={() => setBatchResult(null)} className="ml-3 text-gray-500 hover:text-gray-300">✕</button>
-        </div>
-      )}
-
-      {/* 工具栏 */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border border-dark-600 bg-dark-800/40 rounded-lg px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 shrink-0">排行依据</span>
-          <div className="flex gap-1">
+      {/* ── 中间主区 ── */}
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* 搜索 + 筛选栏 */}
+        <div className="px-4 pt-4 pb-3 border-b border-dark-600 space-y-2 shrink-0">
+          <input
+            type="text"
+            placeholder="社区名搜索"
+            value={nameSearch}
+            onChange={e => setNameSearch(e.target.value)}
+            className="w-full max-w-sm bg-dark-700 border border-dark-500 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent-blue"
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500 shrink-0">社区类型</span>
             {SORT_OPTS.map(o => (
               <button key={o.key} onClick={() => setSortBy(o.key)}
                 className={clsx('px-2.5 py-1 text-xs rounded border transition-colors',
                   sortBy === o.key ? 'border-accent-blue/60 text-accent-blue bg-accent-blue/10' : 'border-dark-600 text-gray-500 hover:text-gray-300'
                 )}>{o.label}</button>
             ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 shrink-0">涨幅门槛</span>
-          <div className="flex gap-1">
             {THRESHOLD_OPTS.map(o => (
               <button key={o.key} onClick={() => setThreshold(o.key)}
                 className={clsx('px-2.5 py-1 text-xs rounded border transition-colors',
                   threshold === o.key ? 'border-accent-blue/60 text-accent-blue bg-accent-blue/10' : 'border-dark-600 text-gray-500 hover:text-gray-300'
                 )}>{o.label}</button>
             ))}
+            <div className="ml-auto flex gap-2">
+              <button onClick={() => { setBatchConfigOpen(true); setBatchResult(null) }} disabled={batchFollowing || loading}
+                className={clsx('text-xs px-3 py-1 rounded border transition-colors font-medium',
+                  batchFollowing ? 'border-dark-500 text-gray-600 cursor-not-allowed'
+                    : 'border-accent-blue/50 text-accent-blue bg-accent-blue/10 hover:bg-accent-blue/20'
+                )}>
+                {batchFollowing ? '跟单中…' : '⚡ 一键跟单'}
+              </button>
+              <button onClick={() => { setLoading(true); fetchData() }}
+                className="text-xs text-gray-500 hover:text-gray-300 border border-dark-600 hover:border-dark-500 px-2.5 py-1 rounded transition-colors">↻</button>
+            </div>
+          </div>
+          {batchResult && (
+            <div className={clsx('text-xs px-3 py-1.5 rounded border',
+              batchResult.error ? 'bg-red-900/20 border-red-700/30 text-red-400' : 'bg-green-900/20 border-green-700/30 text-green-400'
+            )}>
+              {batchResult.error ? `失败：${batchResult.error}` : `完成：新增 ${batchResult.added}，更新 ${batchResult.updated}`}
+              <button onClick={() => setBatchResult(null)} className="ml-3 text-gray-500 hover:text-gray-300">✕</button>
+            </div>
+          )}
+        </div>
+
+        {/* 社区列表 */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-4 py-3">
+            <div className="text-xs text-gray-500 mb-2">社区列表</div>
+            <div className="border border-dark-600 rounded-lg overflow-hidden">
+              {loading ? (
+                <div className="py-16 text-center text-gray-500 text-sm">加载中...</div>
+              ) : error ? (
+                <div className="py-16 text-center text-red-500 text-sm">{error}</div>
+              ) : filteredData.length === 0 ? (
+                <div className="py-16 text-center text-gray-500 text-sm">暂无数据</div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-dark-600 bg-dark-800/60">
+                      {COLS.map(({ k, label, cls }, i) => (
+                        <th key={i} className={clsx('py-3 text-xs font-medium', cls,
+                          k ? 'cursor-pointer select-none text-gray-400 hover:text-gray-200' : 'text-gray-500'
+                        )} onClick={k ? () => handleLocalSort(k) : undefined}>
+                          <span className="inline-flex items-center gap-1">{label}{k && <SortIcon k={k} />}</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredData.map((item, idx) => (
+                      <CommunityRow
+                        key={item.qun_id}
+                        item={item}
+                        rank={item.rank ?? idx + 1}
+                        expanded={expanded === item.qun_id}
+                        onToggle={() => setExpanded(expanded === item.qun_id ? null : item.qun_id)}
+                        onDetail={openDetail}
+                        onFollowClick={setFollowTarget}
+                        isFollowing={followMap[item.qun_id] || null}
+                        isSelected={selectedItem?.qun_id === item.qun_id}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {!loading && !error && filteredData.length > 0 && (
+              <p className="text-xs text-gray-600 text-right mt-2">共 {filteredData.length} 个社群</p>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 表格 */}
-      <div className="border border-dark-600 rounded-lg overflow-hidden">
-        {loading ? (
-          <div className="py-20 text-center text-gray-500 text-sm">加载中...</div>
-        ) : error ? (
-          <div className="py-20 text-center text-red-500 text-sm">{error}</div>
-        ) : data.length === 0 ? (
-          <div className="py-20 text-center text-gray-500 text-sm">暂无数据</div>
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-dark-600 bg-dark-800/60">
-                {COLS.map(({ k, label, cls }, i) => (
-                  <th key={i} className={clsx('py-3 text-xs font-medium', cls,
-                    k ? 'cursor-pointer select-none text-gray-400 hover:text-gray-200' : 'text-gray-500'
-                  )} onClick={k ? () => handleLocalSort(k) : undefined}>
-                    <span className="inline-flex items-center gap-1">{label}{k && <SortIcon k={k} />}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedData.map((item, idx) => (
-                <CommunityRow
-                  key={item.qun_id}
-                  item={item}
-                  rank={item.rank ?? idx + 1}
-                  expanded={expanded === item.qun_id}
-                  onToggle={() => setExpanded(expanded === item.qun_id ? null : item.qun_id)}
-                  onFollowClick={setFollowTarget}
-                  isFollowing={followMap[item.qun_id] || null}
-                />
-              ))}
-            </tbody>
-          </table>
+      {/* ── 右侧面板 ── */}
+      <aside className="w-64 shrink-0 border-l border-dark-600 bg-dark-850 flex flex-col gap-4 p-4 overflow-y-auto hidden lg:flex">
+        {selectedItem && (
+          <div className="bg-dark-800 border border-accent-blue/40 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Identicon seed={selectedItem.qun_id} size={28} />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-mono font-semibold text-accent-blue truncate">{anonName(selectedItem.qun_id)}</div>
+                <div className="text-[10px] text-gray-600">单社群数据</div>
+              </div>
+              <button onClick={() => setSelectedItem(null)}
+                className="text-gray-500 hover:text-gray-300 text-xs px-1">✕</button>
+            </div>
+          </div>
         )}
-      </div>
+        <MemeGaugePannel data={data} selected={selectedItem} />
+        <WinLossPiePannel data={data} selected={selectedItem} />
+        <MultiplierBarPannel data={data} selected={selectedItem} />
+      </aside>
+    </div>
+  )
+}
 
-      {!loading && !error && data.length > 0 && (
-        <p className="text-xs text-gray-600 text-right">共 {data.length} 个社群 · 群名已匿名化 · 数据来自微信社群信号平台</p>
+// ── meme情绪半圆仪表盘 ────────────────────────────────────────────
+function MemeGaugePannel({ data, selected }) {
+  const score = useMemo(() => {
+    if (selected) {
+      return Math.round(Math.min(100, Math.max(0, selected.all?.win_rate ?? 0)))
+    }
+    if (!data.length) return 50
+    const avgWr = data.reduce((s, d) => s + (d.all?.win_rate ?? 0), 0) / data.length
+    return Math.round(Math.min(100, Math.max(0, avgWr)))
+  }, [data, selected])
+
+  const label = score >= 70 ? '极度贪婪' : score >= 55 ? '贪婪' : score >= 45 ? '中性' : score >= 30 ? '恐惧' : '极度恐惧'
+  const color = score >= 70 ? '#f59e0b' : score >= 55 ? '#22c55e' : score >= 45 ? '#60a5fa' : score >= 30 ? '#f97316' : '#ef4444'
+
+  // 半圆 SVG：r=60, 从180°到0°
+  const R = 60, cx = 80, cy = 75
+  const angle = Math.PI - (score / 100) * Math.PI
+  const nx = cx + R * Math.cos(angle)
+  const ny = cy - R * Math.sin(angle)
+
+  return (
+    <div className="bg-dark-800 border border-dark-600 rounded-xl p-3">
+      <div className="text-xs text-gray-500 mb-2">
+        meme情绪{selected && <span className="text-accent-blue/80 ml-1">· 单社群</span>}
+      </div>
+      <svg viewBox="0 0 160 85" className="w-full">
+        {/* 背景弧 */}
+        <path d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
+          fill="none" stroke="#1e1e2e" strokeWidth="10" strokeLinecap="round" />
+        {/* 彩色弧段 */}
+        {[
+          { from: 0, to: 0.2, c: '#ef4444' },
+          { from: 0.2, to: 0.4, c: '#f97316' },
+          { from: 0.4, to: 0.6, c: '#60a5fa' },
+          { from: 0.6, to: 0.8, c: '#22c55e' },
+          { from: 0.8, to: 1.0, c: '#f59e0b' },
+        ].map(({ from, to, c }, i) => {
+          const a1 = Math.PI - from * Math.PI
+          const a2 = Math.PI - to * Math.PI
+          const x1 = cx + R * Math.cos(a1), y1 = cy - R * Math.sin(a1)
+          const x2 = cx + R * Math.cos(a2), y2 = cy - R * Math.sin(a2)
+          return <path key={i} d={`M ${x1} ${y1} A ${R} ${R} 0 0 1 ${x2} ${y2}`}
+            fill="none" stroke={c} strokeWidth="8" strokeLinecap="butt" opacity="0.7" />
+        })}
+        {/* 指针 */}
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r="4" fill={color} />
+        {/* 数值 */}
+        <text x={cx} y={cy - 12} textAnchor="middle" fill={color} fontSize="16" fontWeight="bold" fontFamily="monospace">{score}</text>
+        <text x={cx} y={cy + 14} textAnchor="middle" fill="#9ca3af" fontSize="9">{label}</text>
+      </svg>
+    </div>
+  )
+}
+
+// ── 代币盈亏占比饼图 ──────────────────────────────────────────────
+function WinLossPiePannel({ data, selected }) {
+  const { win, loss } = useMemo(() => {
+    let win = 0, loss = 0
+    const source = selected ? [selected] : data
+    source.forEach(d => {
+      win += d.all?.win_ca ?? 0
+      loss += Math.max(0, (d.all?.total_ca ?? 0) - (d.all?.win_ca ?? 0))
+    })
+    return { win, loss }
+  }, [data, selected])
+
+  const total = win + loss
+  const pieData = [
+    { name: '盈利', value: win, color: '#22c55e' },
+    { name: '亏损', value: loss, color: '#ef4444' },
+  ]
+
+  return (
+    <div className="bg-dark-800 border border-dark-600 rounded-xl p-3">
+      <div className="text-xs text-gray-500 mb-2">
+        代币盈亏占比{selected && <span className="text-accent-blue/80 ml-1">· 单社群</span>}
+      </div>
+      {total > 0 ? (
+        <>
+          <ResponsiveContainer width="100%" height={100}>
+            <PieChart>
+              <Pie data={pieData} cx="50%" cy="50%" innerRadius={28} outerRadius={44} dataKey="value" paddingAngle={2}>
+                {pieData.map((entry, i) => <Cell key={i} fill={entry.color} opacity={0.85} />)}
+              </Pie>
+              <Tooltip formatter={(v) => [`${v} 单`, '']} contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex justify-center gap-4 text-xs mt-1">
+            <span className="flex items-center gap-1 text-green-400"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />盈 {win}</span>
+            <span className="flex items-center gap-1 text-red-400"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />亏 {loss}</span>
+          </div>
+        </>
+      ) : (
+        <div className="text-center text-gray-600 text-xs py-6">暂无数据</div>
       )}
+    </div>
+  )
+}
+
+// ── 涨跌倍数分布矩形图 ────────────────────────────────────────────
+function MultiplierBarPannel({ data, selected }) {
+  const barData = useMemo(() => {
+    // 按涨幅百分比分桶
+    const buckets = [
+      { label: '<0%',     min: -Infinity, max: 0 },
+      { label: '0-30%',   min: 0,   max: 0.3 },
+      { label: '30-100%', min: 0.3, max: 1 },
+      { label: '1-3x',    min: 1,   max: 3 },
+      { label: '3-5x',    min: 3,   max: 5 },
+      { label: '>5x',     min: 5,   max: Infinity },
+    ]
+    const counts = buckets.map(b => ({ label: b.label, count: 0 }))
+
+    // 单社群：取 今日/7日/历史 三个时段的均涨幅作为数据点
+    // 全榜：每个社群的历史均涨幅作为数据点
+    const samples = []
+    if (selected) {
+      ;['today', 'seven_day', 'all'].forEach(k => {
+        const d = selected[k]
+        if (d?.total_ca > 0) samples.push(d.total_multiplier / d.total_ca)
+      })
+    } else {
+      data.forEach(d => {
+        const total = d.all?.total_ca ?? 0
+        if (!total) return
+        samples.push((d.all?.total_multiplier ?? 0) / total)
+      })
+    }
+
+    samples.forEach(avg => {
+      const idx = buckets.findIndex(b => avg >= b.min && avg < b.max)
+      if (idx >= 0) counts[idx].count++
+    })
+    return counts
+  }, [data, selected])
+
+  return (
+    <div className="bg-dark-800 border border-dark-600 rounded-xl p-3">
+      <div className="text-xs text-gray-500 mb-2">
+        涨跌倍数分布矩形图{selected && <span className="text-accent-blue/80 ml-1">· 单社群</span>}
+      </div>
+      <ResponsiveContainer width="100%" height={100}>
+        <BarChart data={barData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+          <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 9, fill: '#6b7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
+          <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #333', borderRadius: 8, fontSize: 11 }} />
+          <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+            {barData.map((entry, i) => (
+              <Cell key={i} fill={i === 0 ? '#ef4444' : i === 1 ? '#6b7280' : i === 2 ? '#60a5fa' : i === 3 ? '#22c55e' : i === 4 ? '#10b981' : '#f59e0b'} opacity={0.85} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   )
 }

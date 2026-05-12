@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
 
 export default function FollowModal({ item, onClose, onSaved }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     enabled: true,
     buy_amount: 0.1,
@@ -47,136 +49,133 @@ export default function FollowModal({ item, onClose, onSaved }) {
       })
       const d = await r.json()
       if (d.success) { onSaved?.(); onClose() }
-      else alert('保存失败')
-    } catch (e) { alert('保存失败: ' + e.message) }
+      else alert(t('follow_modal.save_failed'))
+    } catch (e) { alert(t('follow_modal.save_failed') + ': ' + e.message) }
     finally { setSaving(false) }
   }
 
   const handleDelete = async () => {
-    if (!confirm('确认取消跟单？')) return
+    if (!confirm(t('follow_modal.delete_confirm'))) return
     setDeleting(true)
     try {
       await fetch(`/api/analytics/follow_traders/${encodeURIComponent(item.qy_wxid)}`, { method: 'DELETE' })
       onSaved?.(); onClose()
-    } catch (e) { alert('删除失败') }
+    } catch (e) { alert(t('follow_modal.delete_failed')) }
     finally { setDeleting(false) }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-dark-800 border border-dark-600 rounded-xl w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
-        {/* 头部 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-dark-600">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-200">跟单设置</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{item.name || '匿名'}</p>
+    <div className="cp-modal-backdrop fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="web3-frame w-[480px] max-w-[94vw]" onClick={e => e.stopPropagation()}>
+        <span className="w3-corners" aria-hidden="true"><i></i></span>
+        <div className="web3-frame-inner cp-modal-bg">
+          {/* 头部 */}
+          <div className="flex items-center justify-between px-5 pt-4 pb-3">
+            <div className="min-w-0">
+              <h3 className="cp-modal-title">{t('follow_modal.title')}</h3>
+              <p className="cp-modal-subtitle truncate">{item.name || t('leaderboard.anonymous')}</p>
+            </div>
+            <button onClick={onClose} className="cp-modal-close shrink-0" aria-label={t('common.close')}>×</button>
           </div>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-400 text-lg leading-none">×</button>
-        </div>
+          <div className="cp-modal-divider" />
 
-        {loading ? (
-          <div className="py-12 text-center text-gray-600 text-sm">加载中...</div>
-        ) : (
-          <div className="px-5 py-4 space-y-4">
-            {/* 启用开关 */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-300 font-medium">启用跟单</p>
-                <p className="text-xs text-gray-600 mt-0.5">开启后该喊单人的CA会自动买入</p>
-              </div>
-              <button
-                onClick={() => set('enabled', !form.enabled)}
-                className={clsx(
-                  'relative w-11 h-6 rounded-full transition-colors',
-                  form.enabled ? 'bg-accent-blue' : 'bg-dark-600'
-                )}
-              >
-                <span className={clsx(
-                  'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform',
-                  form.enabled ? 'translate-x-5' : 'translate-x-0.5'
-                )} />
-              </button>
+          {loading ? (
+            <div className="py-12 text-center text-gray-400 text-sm font-mono tracking-widest uppercase">
+              <span className="cp-text-flicker-host">{t('follow_modal.loading')}</span>
             </div>
-
-            {/* 买入金额 */}
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">买入金额 (USDT)</label>
-              <div className="flex gap-1 flex-wrap mb-1">
-                {[0.05, 0.1, 0.2, 0.5, 1].map(v => (
-                  <button key={v} onClick={() => set('buy_amount', v)}
-                    className={clsx('text-xs px-2 py-0.5 rounded border transition-colors',
-                      form.buy_amount === v
-                        ? 'border-accent-blue/60 text-accent-blue bg-accent-blue/10'
-                        : 'border-dark-500 text-gray-500 hover:text-gray-300'
-                    )}>{v}U</button>
-                ))}
-              </div>
-              <input type="number" step="0.01" min="0.01" value={form.buy_amount}
-                onChange={e => set('buy_amount', parseFloat(e.target.value) || 0.1)}
-                className="w-full bg-dark-700 border border-dark-500 rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-accent-blue/60" />
-            </div>
-
-            {/* 止盈止损 */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">止盈 (%)</label>
-                <input type="number" step="5" min="5" value={form.take_profit}
-                  onChange={e => set('take_profit', parseFloat(e.target.value) || 50)}
-                  className="w-full bg-dark-700 border border-dark-500 rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-accent-blue/60" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">止损 (%)</label>
-                <input type="number" step="5" min="5" value={form.stop_loss}
-                  onChange={e => set('stop_loss', parseFloat(e.target.value) || 30)}
-                  className="w-full bg-dark-700 border border-dark-500 rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-accent-blue/60" />
-              </div>
-            </div>
-
-            {/* 最长持仓 */}
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">最长持仓（分钟）</label>
-              <div className="flex gap-1 flex-wrap mb-1">
-                {[30, 60, 120, 240].map(v => (
-                  <button key={v} onClick={() => set('max_hold_min', v)}
-                    className={clsx('text-xs px-2 py-0.5 rounded border transition-colors',
-                      form.max_hold_min === v
-                        ? 'border-accent-blue/60 text-accent-blue bg-accent-blue/10'
-                        : 'border-dark-500 text-gray-500 hover:text-gray-300'
-                    )}>{v}分</button>
-                ))}
-              </div>
-              <input type="number" step="10" min="10" value={form.max_hold_min}
-                onChange={e => set('max_hold_min', parseInt(e.target.value) || 60)}
-                className="w-full bg-dark-700 border border-dark-500 rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-accent-blue/60" />
-            </div>
-
-            {/* 备注 */}
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">备注</label>
-              <input type="text" value={form.note} placeholder="可选"
-                onChange={e => set('note', e.target.value)}
-                className="w-full bg-dark-700 border border-dark-500 rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-accent-blue/60" />
-            </div>
-
-            {/* 按钮 */}
-            <div className="flex gap-2 pt-1">
-              {exists && (
-                <button onClick={handleDelete} disabled={deleting}
-                  className="px-3 py-2 text-xs rounded border border-red-700/50 text-red-400 hover:bg-red-900/20 transition-colors">
-                  {deleting ? '删除中...' : '取消跟单'}
+          ) : (
+            <div className="px-6 py-5 space-y-5">
+              {/* 启用开关 */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="cp-modal-label !mb-1">{t('follow_modal.enable')}</p>
+                  <p className="text-sm text-gray-400 font-mono tracking-wide">{t('follow_modal.enable_desc')}</p>
+                </div>
+                <button
+                  onClick={() => set('enabled', !form.enabled)}
+                  className={clsx('cp-toggle shrink-0', form.enabled && 'cp-toggle-on')}
+                  aria-pressed={form.enabled}
+                >
+                  <span className="cp-toggle-knob" />
                 </button>
-              )}
-              <button onClick={onClose}
-                className="flex-1 py-2 text-xs rounded border border-dark-500 text-gray-500 hover:text-gray-300 transition-colors">
-                取消
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                className="flex-1 py-2 text-xs rounded bg-accent-blue/90 hover:bg-accent-blue text-white font-medium transition-colors">
-                {saving ? '保存中...' : (exists ? '更新跟单' : '开始跟单')}
-              </button>
+              </div>
+
+              {/* 买入金额 */}
+              <div>
+                <label className="cp-modal-label">{t('follow_modal.buy_amount')}</label>
+                <div className="flex gap-1.5 flex-wrap mb-2">
+                  {[0.05, 0.1, 0.2, 0.5, 1].map(v => (
+                    <button key={v} onClick={() => set('buy_amount', v)}
+                      className={clsx('cp-chip', form.buy_amount === v && 'cp-chip-active')}>{v}U</button>
+                  ))}
+                </div>
+                <input type="number" step="0.01" min="0.01" value={form.buy_amount}
+                  onChange={e => set('buy_amount', parseFloat(e.target.value) || 0.1)}
+                  className="cp-input" />
+              </div>
+
+              {/* 止盈止损 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="cp-modal-label">{t('follow_modal.take_profit')}</label>
+                  <input type="number" step="5" min="5" value={form.take_profit}
+                    onChange={e => set('take_profit', parseFloat(e.target.value) || 50)}
+                    className="cp-input" />
+                </div>
+                <div>
+                  <label className="cp-modal-label">{t('follow_modal.stop_loss')}</label>
+                  <input type="number" step="5" min="5" value={form.stop_loss}
+                    onChange={e => set('stop_loss', parseFloat(e.target.value) || 30)}
+                    className="cp-input" />
+                </div>
+              </div>
+
+              {/* 最长持仓 */}
+              <div>
+                <label className="cp-modal-label">{t('follow_modal.max_hold')}</label>
+                <div className="flex gap-1.5 flex-wrap mb-2">
+                  {[30, 60, 120, 240].map(v => (
+                    <button key={v} onClick={() => set('max_hold_min', v)}
+                      className={clsx('cp-chip', form.max_hold_min === v && 'cp-chip-active')}>
+                      {t('follow_modal.minutes_unit', { n: v })}
+                    </button>
+                  ))}
+                </div>
+                <input type="number" step="10" min="10" value={form.max_hold_min}
+                  onChange={e => set('max_hold_min', parseInt(e.target.value) || 60)}
+                  className="cp-input" />
+              </div>
+
+              {/* 备注 */}
+              <div>
+                <label className="cp-modal-label">{t('follow_modal.note')}</label>
+                <input type="text" value={form.note} placeholder={t('follow_modal.note_placeholder')}
+                  onChange={e => set('note', e.target.value)}
+                  className="cp-input" />
+              </div>
+
+              <div className="cp-modal-divider mt-1" />
+
+              {/* 按钮 */}
+              <div className="flex gap-2 pt-1">
+                {exists && (
+                  <button onClick={handleDelete} disabled={deleting}
+                    className="cp-btn cp-btn-magenta px-4 py-2.5 text-sm font-mono font-bold tracking-wider uppercase border border-red-500/50 text-red-300">
+                    {deleting ? t('follow_modal.deleting') : t('follow_modal.cancel_follow')}
+                  </button>
+                )}
+                <button onClick={onClose}
+                  className="cp-btn flex-1 py-2.5 text-sm font-mono font-bold tracking-wider uppercase border border-dark-500 text-gray-400 hover:text-gray-200">
+                  {t('common.cancel')}
+                </button>
+                <button onClick={handleSave} disabled={saving}
+                  className="cp-btn flex-1 py-2.5 text-sm font-mono font-bold tracking-wider uppercase border border-accent-green/70 text-accent-green bg-accent-green/15 hover:bg-accent-green/25">
+                  {saving ? t('follow_modal.saving') : (exists ? t('follow_modal.update_follow') : t('follow_modal.start_follow'))}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

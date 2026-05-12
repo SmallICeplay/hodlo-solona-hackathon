@@ -1,174 +1,145 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getWalletStatus, createWallet, importWallet, deleteWallet, sweepResidualTokens } from '../api'
-import { Card, Button, Badge } from './UI'
+import { Card } from './UI'
 import { clsx } from 'clsx'
 
-const CHAIN_COLOR = { SOL: 'purple', BSC: 'yellow', ETH: 'blue', XLAYER: 'gray' }
+const CHAIN_PILL = { SOL: 'cp-pill-blue', BSC: 'cp-pill-yellow', ETH: 'cp-pill-blue', XLAYER: 'cp-pill-gray' }
 
 export default function WalletPanel({ logs = [] }) {
-  const [status, setStatus] = useState(null)  // null=loading, {exists,addresses}
-  const [mode, setMode] = useState(null)       // null | 'create' | 'import'
+  const { t } = useTranslation()
+  const [status, setStatus] = useState(null)
+  const [mode, setMode] = useState(null)
   const [mnemonicInput, setMnemonicInput] = useState('')
-  const [newWalletResult, setNewWalletResult] = useState(null)  // 新建成功后显示助记词
+  const [newWalletResult, setNewWalletResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [confirmed, setConfirmed] = useState(false)  // 用户确认已备份
+  const [confirmed, setConfirmed] = useState(false)
 
   const load = async () => {
-    try {
-      const data = await getWalletStatus()
-      setStatus(data)
-    } catch {
-      setStatus({ exists: false, addresses: {} })
-    }
+    try { setStatus(await getWalletStatus()) }
+    catch { setStatus({ exists: false, addresses: {} }) }
   }
-
   useEffect(() => { load() }, [])
 
   const handleCreate = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const result = await createWallet()
-      setNewWalletResult(result)
-      setMode(null)
-      await load()
-    } catch (e) {
-      setError(e.response?.data?.detail || e.message)
-    } finally {
-      setLoading(false)
-    }
+    setLoading(true); setError('')
+    try { const r = await createWallet(); setNewWalletResult(r); setMode(null); await load() }
+    catch (e) { setError(e.response?.data?.detail || e.message) }
+    finally { setLoading(false) }
   }
 
   const handleImport = async () => {
     if (!mnemonicInput.trim()) return
-    setLoading(true)
-    setError('')
-    try {
-      await importWallet(mnemonicInput.trim())
-      setMnemonicInput('')
-      setMode(null)
-      await load()
-    } catch (e) {
-      setError(e.response?.data?.detail || e.message)
-    } finally {
-      setLoading(false)
-    }
+    setLoading(true); setError('')
+    try { await importWallet(mnemonicInput.trim()); setMnemonicInput(''); setMode(null); await load() }
+    catch (e) { setError(e.response?.data?.detail || e.message) }
+    finally { setLoading(false) }
   }
 
   const handleDelete = async () => {
-    if (!confirm('确认删除钱包？此操作不可逆，请确保链上资产已转出！')) return
+    if (!confirm(t('wallet.delete_confirm'))) return
     setLoading(true)
-    try {
-      await deleteWallet()
-      setNewWalletResult(null)
-      setConfirmed(false)
-      await load()
-    } catch (e) {
-      setError(e.response?.data?.detail || e.message)
-    } finally {
-      setLoading(false)
-    }
+    try { await deleteWallet(); setNewWalletResult(null); setConfirmed(false); await load() }
+    catch (e) { setError(e.response?.data?.detail || e.message) }
+    finally { setLoading(false) }
   }
 
-  if (!status) {
-    return <Card><div className="text-center text-gray-500 py-8 text-sm">加载中...</div></Card>
-  }
+  if (!status) return (
+    <Card className="cp-cfg-card">
+      <div className="text-center text-gray-400 py-8 font-mono text-sm">{t('common.loading')}</div>
+    </Card>
+  )
 
   return (
     <div className="space-y-4">
-      {/* 新建钱包后显示助记词（一次性）*/}
+      {/* 新建钱包后显示助记词 */}
       {newWalletResult && (
-        <Card className="border-accent-yellow/50 bg-yellow-900/10">
-          <div className="flex items-start gap-2 mb-3">
-            <span className="text-accent-yellow text-lg">⚠️</span>
+        <Card className="cp-cfg-card !border-accent-yellow/50 !bg-accent-yellow/5">
+          <div className="flex items-start gap-3 mb-4">
             <div>
-              <p className="text-sm font-semibold text-accent-yellow">请立即备份助记词！关闭此页面后将无法再次查看</p>
-              <p className="text-xs text-gray-500 mt-0.5">将以下12个单词按顺序抄写在纸上，妥善保管</p>
+              <p className="cp-modal-label !text-accent-yellow !mb-1">{t('wallet.backup_warn_title')}</p>
+              <p className="cp-hint">{t('wallet.backup_warn_subtitle')}</p>
             </div>
           </div>
           <div className="grid grid-cols-4 gap-2 mb-4">
             {newWalletResult.mnemonic?.split(' ').map((word, i) => (
-              <div key={i} className="bg-dark-700 rounded-lg px-3 py-2 text-center">
-                <span className="text-gray-600 text-xs">{i + 1}.</span>
-                <span className="text-white text-sm ml-1 font-mono">{word}</span>
+              <div key={i} className="cp-chip !text-sm !py-2 text-center">
+                <span className="text-gray-500 text-xs">{i + 1}.</span>
+                <span className="text-white ml-1 font-mono">{word}</span>
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2 mb-3">
-            <input
-              type="checkbox"
-              id="backup-confirm"
-              checked={confirmed}
-              onChange={e => setConfirmed(e.target.checked)}
-              className="accent-accent-green"
-            />
-            <label htmlFor="backup-confirm" className="text-xs text-gray-300 cursor-pointer">
-              我已抄写备份助记词，并了解丢失后无法找回
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => setConfirmed(v => !v)}
+              className={clsx('cp-checkbox shrink-0', confirmed && 'cp-checkbox-on')}
+            >
+              {confirmed && <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>}
+            </button>
+            <label onClick={() => setConfirmed(v => !v)} className="cp-filter-label cursor-pointer">
+              {t('wallet.backup_confirm_label')}
             </label>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             disabled={!confirmed}
             onClick={() => setNewWalletResult(null)}
+            className={clsx('cp-cfg-btn cp-cfg-btn-primary', !confirmed && 'opacity-40 cursor-not-allowed')}
           >
-            确认已备份，关闭此提示
-          </Button>
+            {t('wallet.backup_confirm_btn')}
+          </button>
         </Card>
       )}
 
       {/* 钱包状态 */}
-      <Card>
+      <Card className="cp-cfg-card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-200">钱包状态</h3>
+          <p className="cp-modal-label !mb-0">{t('wallet.status_title')}</p>
           {status.exists && (
             <button
               onClick={handleDelete}
               disabled={loading}
-              className="text-xs text-red-500 hover:text-red-400 disabled:opacity-40"
+              className="cp-cfg-btn cp-cfg-btn-ghost !border-accent-red/50 !text-accent-red hover:!border-accent-red hover:!bg-accent-red/10 disabled:opacity-40"
             >
-              删除钱包
+              {t('wallet.delete_btn')}
             </button>
           )}
         </div>
 
         {status.exists ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs text-accent-green">
-              <div className="w-2 h-2 bg-accent-green rounded-full" />
-              钱包已配置，加密存储在本地数据库
+            <div className="flex items-center gap-2 text-sm font-mono font-semibold text-accent-green">
+              <div className="w-2 h-2 bg-accent-green rounded-full bot-glow" />
+              {t('wallet.configured_note')}
             </div>
-            {/* 各链地址 */}
             <div className="space-y-2 mt-3">
               {Object.entries(status.addresses || {}).map(([chain, addr]) => (
-                <div key={chain} className="flex items-center gap-3 bg-dark-700 rounded-lg px-3 py-2">
-                  <Badge color={CHAIN_COLOR[chain] || 'gray'}>{chain}</Badge>
-                  <span className="font-mono text-xs text-gray-300 break-all flex-1">{addr}</span>
+                <div key={chain} className="cp-stat-panel !p-3 flex items-center gap-3">
+                  <span className={clsx('cp-pill shrink-0', CHAIN_PILL[chain] || 'cp-pill-gray')}>{chain}</span>
+                  <span className="font-mono text-sm text-gray-200 break-all flex-1">{addr}</span>
                   <button
-                    onClick={() => { navigator.clipboard.writeText(addr); }}
-                    className="text-xs text-gray-500 hover:text-gray-300 shrink-0"
-                    title="复制地址"
+                    onClick={() => navigator.clipboard.writeText(addr)}
+                    className="cp-cfg-btn cp-cfg-btn-ghost !py-1 !px-3 !text-[11px] shrink-0"
+                    title={t('wallet.copy_addr_tooltip')}
                   >
-                    复制
+                    {t('common.copy')}
                   </button>
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-600 mt-2">
-              私钥由 WALLET_MASTER_PASSWORD 加密保护，交易时自动解密使用
-            </p>
+            <p className="cp-hint">{t('wallet.pk_note')}</p>
           </div>
         ) : (
           <div className="text-center py-6">
-            <p className="text-gray-500 text-sm mb-4">尚未配置钱包，请新建或导入</p>
+            <p className="cp-hint text-center mb-5">{t('wallet.not_configured')}</p>
             <div className="flex gap-3 justify-center">
-              <Button onClick={() => { setMode('create'); setError('') }}>
-                新建钱包
-              </Button>
-              <Button variant="ghost" onClick={() => { setMode('import'); setError('') }}>
-                导入助记词
-              </Button>
+              <button onClick={() => { setMode('create'); setError('') }} className="cp-cfg-btn cp-cfg-btn-primary">
+                {t('wallet.create_btn')}
+              </button>
+              <button onClick={() => { setMode('import'); setError('') }} className="cp-cfg-btn cp-cfg-btn-ghost">
+                {t('wallet.import_btn')}
+              </button>
             </div>
           </div>
         )}
@@ -176,46 +147,44 @@ export default function WalletPanel({ logs = [] }) {
 
       {/* 新建确认 */}
       {mode === 'create' && (
-        <Card className="border-accent-blue/30">
-          <h3 className="text-sm font-semibold text-gray-200 mb-2">新建钱包</h3>
-          <p className="text-xs text-gray-500 mb-4">
-            系统将自动生成12个助记词，并派生 SOL / BSC / ETH / XLAYER 四条链的地址。
-            <br />
-            <span className="text-accent-yellow">助记词只显示一次，请务必备份！</span>
-          </p>
-          {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
-          <div className="flex gap-2">
-            <Button onClick={handleCreate} disabled={loading}>
-              {loading ? '生成中...' : '确认生成'}
-            </Button>
-            <Button variant="ghost" onClick={() => setMode(null)}>取消</Button>
+        <Card className="cp-cfg-card !border-accent-blue/30">
+          <p className="cp-modal-label !mb-2">{t('wallet.create_btn')}</p>
+          <p className="cp-hint mb-4">{t('wallet.create_form_desc')}</p>
+          <p className="cp-hint !border-accent-yellow/50 !text-accent-yellow mb-4">{t('wallet.create_form_warn')}</p>
+          {error && <p className="text-sm font-mono text-accent-red mb-3">{error}</p>}
+          <div className="flex gap-3">
+            <button onClick={handleCreate} disabled={loading} className="cp-cfg-btn cp-cfg-btn-primary disabled:opacity-40">
+              {loading ? t('wallet.create_loading') : t('wallet.create_confirm')}
+            </button>
+            <button onClick={() => setMode(null)} className="cp-cfg-btn cp-cfg-btn-ghost">{t('common.cancel')}</button>
           </div>
         </Card>
       )}
 
       {/* 导入助记词 */}
       {mode === 'import' && (
-        <Card className="border-accent-blue/30">
-          <h3 className="text-sm font-semibold text-gray-200 mb-2">导入助记词</h3>
-          <p className="text-xs text-gray-500 mb-3">
-            输入12或24个英文单词（空格分隔），系统将验证并加密保存
-          </p>
+        <Card className="cp-cfg-card !border-accent-blue/30">
+          <p className="cp-modal-label !mb-2">{t('wallet.import_btn')}</p>
+          <p className="cp-hint mb-3">{t('wallet.import_form_desc')}</p>
           <textarea
             value={mnemonicInput}
             onChange={e => setMnemonicInput(e.target.value)}
-            placeholder="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
+            placeholder="word1 word2 word3 ... word12"
             rows={3}
-            className="w-full bg-dark-700 border border-dark-500 rounded-lg px-3 py-2 text-sm text-gray-200 font-mono focus:outline-none focus:border-accent-blue resize-none mb-3"
+            className="cp-input resize-none mb-3"
           />
-          {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
-          <div className="flex gap-2">
-            <Button
+          {error && <p className="text-sm font-mono text-accent-red mb-3">{error}</p>}
+          <div className="flex gap-3">
+            <button
               onClick={handleImport}
               disabled={loading || !mnemonicInput.trim()}
+              className="cp-cfg-btn cp-cfg-btn-primary disabled:opacity-40"
             >
-              {loading ? '导入中...' : '确认导入'}
-            </Button>
-            <Button variant="ghost" onClick={() => { setMode(null); setMnemonicInput('') }}>取消</Button>
+              {loading ? t('wallet.import_loading') : t('wallet.import_confirm')}
+            </button>
+            <button onClick={() => { setMode(null); setMnemonicInput('') }} className="cp-cfg-btn cp-cfg-btn-ghost">
+              {t('common.cancel')}
+            </button>
           </div>
         </Card>
       )}
@@ -224,27 +193,25 @@ export default function WalletPanel({ logs = [] }) {
       <SweepPanel logs={logs} />
 
       {/* 安全说明 */}
-      <Card className="bg-dark-900/50">
-        <h4 className="text-xs font-semibold text-gray-500 mb-2">安全说明</h4>
-        <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
-          <li>助记词使用 AES-256 加密后存入本地数据库，密钥由 .env 中的 WALLET_MASTER_PASSWORD 派生</li>
-          <li>私钥只在交易执行时在内存中临时解密，不写入任何日志或文件</li>
-          <li>建议新建一个小额专用钱包用于交易，不要使用存有大量资产的主钱包</li>
-          <li>请定期将利润转出到冷钱包</li>
-        </ul>
+      <Card className="cp-cfg-card">
+        <div className="cp-section-label mb-3">{t('wallet.security_title')}</div>
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map(i => (
+            <p key={i} className="cp-hint">{t(`wallet.security_item_${i}`)}</p>
+          ))}
+        </div>
       </Card>
     </div>
   )
 }
 
-// ── 残留代币扫描卖出面板 ──────────────────────────────────────────────────────
 function SweepPanel({ logs = [] }) {
-  const [state, setState] = useState('idle') // idle | started | error
+  const { t } = useTranslation()
+  const [state, setState] = useState('idle')
   const [errMsg, setErrMsg] = useState('')
   const [startedAt, setStartedAt] = useState(null)
   const logEndRef = useRef(null)
 
-  // 过滤扫描相关日志（含 🔍 💰 ✅ ❌ 的 log 行，且在启动之后产生）
   const sweepLogs = logs.filter(log => {
     if (log.type !== 'log' && !log.data?.message) return false
     const msg = log.data?.message || ''
@@ -253,79 +220,55 @@ function SweepPanel({ logs = [] }) {
       : false
   })
 
-  // 扫描完成检测（日志中出现"扫描完成"则标记）
   const isDone = sweepLogs.some(l => (l.data?.message || '').includes('扫描完成'))
-
-  useEffect(() => {
-    if (isDone && state === 'started') {
-      setState('idle')
-      setStartedAt(null)
-    }
-  }, [isDone])
-
-  // 自动滚动到最新日志
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [sweepLogs.length])
+  useEffect(() => { if (isDone && state === 'started') { setState('idle'); setStartedAt(null) } }, [isDone])
+  useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [sweepLogs.length])
 
   const handleSweep = async () => {
-    if (!window.confirm('将扫描所有历史持仓，找出钱包中仍有余额的代币并尝试卖出。进度将在下方显示。确认开始？')) return
-    setState('started')
-    setStartedAt(Date.now())
-    setErrMsg('')
-    try {
-      await sweepResidualTokens()
-    } catch (e) {
-      setErrMsg(e.response?.data?.detail || e.message || '请求失败')
-      setState('error')
-    }
+    if (!window.confirm(t('sweep.confirm'))) return
+    setState('started'); setStartedAt(Date.now()); setErrMsg('')
+    try { await sweepResidualTokens() }
+    catch (e) { setErrMsg(e.response?.data?.detail || e.message || t('sweep.request_failed')); setState('error') }
   }
 
-  const LEVEL_COLOR = { info: 'text-gray-300', warn: 'text-yellow-400', error: 'text-red-400' }
+  const LEVEL_COLOR = { info: 'text-gray-300', warn: 'text-accent-yellow', error: 'text-accent-red' }
 
   return (
-    <Card>
-      <div className="flex items-start justify-between mb-2">
+    <Card className="cp-cfg-card">
+      <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-200">残留代币扫描卖出</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            扫描历史持仓中钱包仍有余额的代币，尝试全部卖出并回收资金
-          </p>
+          <p className="cp-modal-label !mb-1">{t('sweep.title')}</p>
+          <p className="cp-hint">{t('sweep.desc')}</p>
         </div>
         <button
           onClick={handleSweep}
           disabled={state === 'started'}
           className={clsx(
-            'text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors shrink-0',
+            'cp-cfg-btn shrink-0',
             state === 'started'
-              ? 'border-gray-600 text-gray-600 cursor-not-allowed'
-              : 'border-orange-600 text-orange-400 hover:bg-orange-900/20'
+              ? 'cp-cfg-btn-ghost opacity-40 cursor-not-allowed'
+              : 'cp-cfg-btn-ghost !border-accent-yellow/50 !text-accent-yellow hover:!border-accent-yellow hover:!bg-accent-yellow/10'
           )}
         >
-          {state === 'started' ? '扫描中...' : '开始扫描'}
+          {state === 'started' ? t('sweep.scanning') : t('sweep.start_btn')}
         </button>
       </div>
 
-      {state === 'error' && (
-        <div className="text-xs text-red-400 mb-2">{errMsg}</div>
-      )}
+      {state === 'error' && <p className="text-sm font-mono text-accent-red mb-2">{errMsg}</p>}
 
-      {/* 扫描日志区域 */}
       {sweepLogs.length > 0 && (
-        <div className="mt-2 bg-dark-900/60 border border-dark-600 rounded-lg p-2 max-h-48 overflow-y-auto font-mono space-y-0.5">
-          {[...sweepLogs].reverse().map(log => {
-            const msg = log.data?.message || ''
-            const cls = LEVEL_COLOR[log.level] || 'text-gray-400'
-            return (
-              <div key={log.id} className={clsx('text-[11px] leading-relaxed', cls)}>{msg}</div>
-            )
-          })}
+        <div className="cp-expanded p-3 max-h-48 overflow-y-auto font-mono space-y-0.5 mt-2">
+          {[...sweepLogs].reverse().map(log => (
+            <div key={log.id} className={clsx('text-xs leading-relaxed', LEVEL_COLOR[log.level] || 'text-gray-400')}>
+              {log.data?.message || ''}
+            </div>
+          ))}
           <div ref={logEndRef} />
         </div>
       )}
 
       {state === 'started' && sweepLogs.length === 0 && (
-        <div className="text-xs text-orange-400/80 animate-pulse mt-1">等待扫描开始...</div>
+        <p className="text-sm font-mono text-accent-yellow/80 animate-pulse mt-1">{t('sweep.waiting')}</p>
       )}
     </Card>
   )

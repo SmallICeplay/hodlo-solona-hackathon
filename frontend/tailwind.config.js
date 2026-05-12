@@ -5,21 +5,26 @@ export default {
     extend: {
       colors: {
         dark: {
-          900: '#0a0a0f',
-          850: '#0e0e16',
-          800: '#12121a',
-          700: '#1a1a26',
-          600: '#22223a',
-          500: '#2d2d4e',
+          900: '#0a0a0a',
+          850: '#0a0e0d',
+          800: '#0a0e0d',
+          700: '#111a17',
+          600: '#1a2420',
+          500: '#222e2a',
         },
         accent: {
           green: '#00ff87',
-          red: '#ff4466',
-          blue: '#4488ff',
-          yellow: '#ffd700',
-          purple: '#9966ff',
+          red: '#ff2d55',
+          blue: '#00d4ff',
+          yellow: '#ffe600',
+          purple: '#bf5af2',
+          cyan: '#00e5ff',
         }
-      }
+      },
+      fontFamily: {
+        sans: ['"__Lato_06d0dd"', '"__Lato_Fallback_06d0dd"', 'sans-serif'],
+        mono: ['ui-monospace', '"JetBrains Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+      },
     }
   },
   plugins: [],

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getTradeStats, getPositions, getConfig, updateConfig, getTradeHistory, getRecentSignals, getSignalOverview } from './api'
+import { useTranslation } from 'react-i18next'
+import { getTradeStats, getPositions, getConfig, updateConfig, getRecentSignals, getSignalOverview, getWalletStatus } from './api'
 import { useWebSocket } from './hooks/useWebSocket'
 import ConfigPanel from './components/ConfigPanel'
 import { GasAnalysisPanel } from './components/ConfigPanel'
@@ -7,6 +8,7 @@ import PositionsTable from './components/PositionsTable'
 import TradeHistory from './components/TradeHistory'
 import LiveLog from './components/LiveLog'
 import WalletPanel from './components/WalletPanel'
+import WalletModal from './components/WalletModal'
 import WalletPortfolio from './components/WalletPortfolio'
 import AnalyticsPanel from './components/AnalyticsPanel'
 import AiChat from './components/AiChat'
@@ -15,7 +17,7 @@ import SocialLeaderboard from './components/SocialLeaderboard'
 import CommunityLeaderboard from './components/CommunityLeaderboard'
 import AdminPanel, { ADMIN_TOKEN_KEY, LoginModal } from './components/AdminPanel'
 import { TokenLogo } from './components/PositionsTable'
-import { StatCard, Toggle, Card } from './components/UI'
+import { StatCard, Toggle, Card, CyberLoader } from './components/UI'
 import { clsx } from 'clsx'
 
 // ── 音效合成（Web Audio API，无需音频文件） ───────────────────────────────────
@@ -117,8 +119,37 @@ function useCountUp(value, format) {
   return [formatted, display.key]
 }
 
+// ── URL ↔ tab mapping (only for tabs reachable from the persistent sidebar) ─
+const TAB_PATHS = {
+  leaderboard: '/',
+  community:   '/community',
+  dashboard:   '/earnings',
+  config:      '/settings',
+}
+const PATH_TABS = Object.fromEntries(Object.entries(TAB_PATHS).map(([k, v]) => [v, k]))
+
 export default function App() {
-  const [tab, setTab] = useState('leaderboard')
+  const { t } = useTranslation()
+  const [tab, setTab] = useState(() => PATH_TABS[window.location.pathname] || 'leaderboard')
+
+  // Sync tab → URL (push only when sidebar-mapped; replace when arriving via popstate or other mechanisms)
+  useEffect(() => {
+    const path = TAB_PATHS[tab]
+    if (path && window.location.pathname !== path && !window.location.pathname.startsWith(path + '/')) {
+      window.history.pushState({ tab }, '', path)
+    }
+  }, [tab])
+
+  // Sync URL → tab on browser back/forward
+  useEffect(() => {
+    const onPop = () => {
+      const path = window.location.pathname
+      if (path.startsWith('/community')) setTab('community')
+      else setTab(PATH_TABS[path] || 'leaderboard')
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   // ── 管理员状态 ─────────────────────────────────────────────
   const [isAdmin, setIsAdmin]           = useState(() => !!localStorage.getItem(ADMIN_TOKEN_KEY))
@@ -217,128 +248,60 @@ export default function App() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-dark-900 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {/* 顶部导航 */}
-      <header className="border-b border-dark-600 bg-dark-800 sticky top-0 z-30 shrink-0">
-        <div className="px-3 md:px-4 h-14 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <div className={clsx(
-                'w-2 h-2 rounded-full shrink-0',
-                botEnabled ? 'bg-accent-green bot-glow' : 'bg-gray-600'
-              )} />
-              <span className="text-sm md:text-lg font-bold text-white whitespace-nowrap">Hodlo.AI × AVE</span>
-            </div>
-            <div className={clsx(
-              'text-xs px-1.5 py-0.5 rounded-full hidden sm:block',
-              connected ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'
-            )}>
-              {connected ? 'WS 已连接' : 'WS 断开'}
-            </div>
-            {/* 移动端 WS 状态点 */}
-            <div className={clsx(
-              'w-1.5 h-1.5 rounded-full sm:hidden shrink-0',
-              connected ? 'bg-green-400' : 'bg-red-500'
-            )} />
+      <header className="border-b border-accent-green/15 sticky top-0 z-30 shrink-0 overflow-visible" style={{background:'#0a0e0d', boxShadow:'0 1px 0 #00ff8710'}}>
+        {/* 市场数据栏 */}
+        <MarketBar />
+        <div className="px-4 md:px-6 h-[65px] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 shrink-0">
+            <img src="https://hodlo.ai/logo-icon.png" alt="logo" className="w-8 h-8 rounded-lg shrink-0" />
+            <span className="glitch-text text-lg md:text-xl font-bold tracking-widest text-accent-green whitespace-nowrap">HODLO.AI</span>
+            <SearchBar />
           </div>
-          {/* 实时指标 — 桌面端显示 */}
-          <div className="hidden md:flex flex-1 justify-center overflow-hidden">
+          <div className="hidden flex-1 justify-center overflow-hidden">
             <HeaderStats stats={stats} posCount={posCount} />
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* 管理员入口 */}
-            {isAdmin ? (
-              <button
-                onClick={() => setShowAdminPanel(true)}
-                title="管理员控制台"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-yellow-700/40 text-yellow-500 bg-yellow-900/10 hover:bg-yellow-900/25 transition-all text-sm"
-              >
-                🔐
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowLogin(true)}
-                title="管理员登录"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-dark-500 text-gray-600 hover:text-gray-400 hover:border-dark-400 transition-all text-sm"
-              >
-                🔒
-              </button>
-            )}
-            {/* 音效开关 */}
-            <button
-              onClick={toggleMute}
-              title={muted ? '点击开启音效' : '点击静音'}
-              className={clsx(
-                'w-8 h-8 flex items-center justify-center rounded-lg border text-base transition-all',
-                muted
-                  ? 'border-dark-500 text-gray-600 bg-dark-700 hover:border-gray-500 hover:text-gray-400'
-                  : 'border-accent-blue/40 text-accent-blue bg-accent-blue/10 hover:bg-accent-blue/20'
-              )}
-            >
-              {muted ? '🔕' : '🔔'}
-            </button>
             <Toggle
               checked={botEnabled}
               onChange={handleBotToggle}
-              label={isMobile ? (botEnabled ? 'ON' : 'OFF') : (botEnabled ? 'Bot 运行中' : 'Bot 已停止')}
+              label={isMobile ? (botEnabled ? t('header.on') : t('header.off')) : (botEnabled ? t('header.bot_on') : t('header.bot_off'))}
             />
           </div>
         </div>
-        {/* 移动端资产简要行 */}
-        <div className="md:hidden border-t border-dark-700 px-3 py-1.5 flex items-center gap-3 overflow-x-auto scrollbar-none">
+        <div className="md:hidden border-t border-dark-700/60 px-3 py-1.5 flex items-center gap-3 overflow-x-auto scrollbar-none">
           <MobileHeaderStats stats={stats} posCount={posCount} connected={connected} />
         </div>
       </header>
 
-      {/* 状态横幅 */}
-      {!botEnabled ? (
-        <div className="bg-yellow-900/30 border-b border-yellow-700/40 px-3 py-1.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-yellow-400 text-xs">
-            <span>⚠️</span>
-            <span className="font-medium">Bot 未启用 — 观察模式</span>
-          </div>
-          <button
-            onClick={() => handleBotToggle(true)}
-            className="text-xs px-2.5 py-1 rounded border border-yellow-600/50 text-yellow-400 hover:bg-yellow-900/40 transition-colors whitespace-nowrap shrink-0"
-          >启用</button>
-        </div>
-      ) : autoBuyEnabled ? (
-        <div className="bg-orange-900/20 border-b border-orange-700/30 px-3 py-1.5 flex items-center gap-1.5 text-orange-400 text-xs">
-          <span>⚡</span>
-          <span className="hidden sm:inline">Bot 运行中 · 信息流自动购买已开启 — 过滤通过的 CA 将自动买入</span>
-          <span className="sm:hidden">自动买入模式</span>
-        </div>
-      ) : (
-        <div className="bg-blue-900/20 border-b border-blue-700/30 px-3 py-1.5 flex items-center gap-1.5 text-blue-400 text-xs">
-          <span>🔗</span>
-          <span className="hidden sm:inline">Bot 运行中 · 跟单模式 — 仅对已配置跟单的喊单人执行买入，其余信号只记录</span>
-          <span className="sm:hidden">跟单模式</span>
-        </div>
-      )}
-
-      {/* 主体：左侧内容区 + 右侧固定日志列（移动端无日志列） */}
+      {/* 主体：侧边导航 + 左侧内容区 + 右侧固定日志列（移动端无日志列） */}
       <div className="flex flex-1 md:overflow-hidden">
+
+        {/* ── 持久侧边导航 ──────────────────────────────── */}
+        <SideNav tab={tab} onSelect={setTab} />
 
         {/* ── 左侧主内容（可纵向滚动） ─────────────────────── */}
         <div className="flex-1 md:overflow-y-auto min-w-0">
           <div className="px-3 md:px-4 py-3 md:py-4">
 
-            {/* Tab 导航 — 移动端可横向滚动 */}
-            <div className="flex gap-0.5 mb-4 md:mb-5 border-b border-dark-600 overflow-x-auto scrollbar-none -mx-3 md:mx-0 px-3 md:px-0">
+            {/* Tab 导航 — 隐藏 */}
+            <div className="hidden">
               {TABS.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
                   className={clsx(
-                    'px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap shrink-0',
+                    'px-3 md:px-4 py-2 text-xs font-mono border-b-2 transition-all -mb-px whitespace-nowrap shrink-0 tracking-wider uppercase',
                     tab === t.id
-                      ? 'border-accent-blue text-accent-blue'
-                      : 'border-transparent text-gray-500 hover:text-gray-300'
+                      ? 'border-accent-green text-accent-green'
+                      : 'border-transparent text-gray-600 hover:text-gray-400 hover:border-dark-500'
                   )}
+                  style={tab === t.id ? {textShadow:'0 0 8px #00d4ff60'} : {}}
                 >
                   {t.label}
                   {t.id === 'positions' && posCount > 0 && (
-                    <span className="ml-1 text-xs bg-accent-blue/30 text-accent-blue px-1.5 py-0.5 rounded-full">
+                    <span className="ml-1 text-xs bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded font-mono border border-accent-green/30">
                       {posCount}
                     </span>
                   )}
@@ -348,14 +311,14 @@ export default function App() {
 
             {/* ── 社群牛人榜 ──────────────────────────────── */}
             {tab === 'leaderboard' && (
-              <div className="-mx-4 -mt-4 px-4 pt-4">
+              <div className="-mx-3 md:-mx-4 -mt-3 md:-mt-4 -mb-3 md:-mb-4 h-[calc(100vh-113px)] flex flex-col">
                 <SocialLeaderboard />
               </div>
             )}
 
             {/* ── 社群胜率榜 ──────────────────────────────── */}
             {tab === 'community' && (
-              <div className="-mx-4 -mt-4 px-4 pt-4">
+              <div className="relative -mx-4 -mt-4 px-4 pt-4">
                 <CommunityLeaderboard />
               </div>
             )}
@@ -421,9 +384,7 @@ export default function App() {
 
             {/* ── 配置 ────────────────────────────────────── */}
             {tab === 'config' && (
-              <div className="max-w-2xl">
-                <ConfigPanel onConfigSaved={loadStats} />
-              </div>
+              <ConfigPanel onConfigSaved={loadStats} />
             )}
 
             {/* ── 变更日志（顶层 tab 保留，data 子 tab 也有） ── */}
@@ -434,23 +395,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── 拖拽分隔条（仅桌面端） ────────────────────────── */}
-        {!isMobile && showLiveLog && (
-          <div
-            onMouseDown={startDrag}
-            className="w-1 shrink-0 cursor-col-resize hover:bg-accent-blue/40 active:bg-accent-blue/60 transition-colors border-l border-dark-600"
-          />
-        )}
-
-        {/* ── 右侧实时日志（仅桌面端） ─────────────────────── */}
-        {!isMobile && showLiveLog && (
-          <div className="shrink-0 border-l border-dark-600 bg-dark-850 flex flex-col overflow-hidden" style={{ width: logWidth }}>
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-              <SideLog logs={logs} connected={connected} />
-            </div>
-            <AiChat />
-          </div>
-        )}
 
       </div>
 
@@ -490,21 +434,22 @@ function DataPanel({ stats, logs, posCount, onRefresh }) {
   return (
     <div className="space-y-4">
       {/* 子 tab 栏 */}
-      <div className="flex gap-1 border-b border-dark-700">
+      <div className="flex gap-0.5 border-b border-accent-green/10">
         {DATA_SUBTABS.map(t => (
           <button
             key={t.id}
             onClick={() => setSub(t.id)}
             className={clsx(
-              'px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+              'px-3 py-1.5 text-xs font-mono border-b-2 transition-all -mb-px tracking-wider uppercase',
               sub === t.id
-                ? 'border-accent-blue text-accent-blue'
-                : 'border-transparent text-gray-500 hover:text-gray-300'
+                ? 'border-accent-green text-accent-green'
+                : 'border-transparent text-gray-600 hover:text-gray-400'
             )}
+            style={sub === t.id ? {textShadow:'0 0 8px #00d4ff60'} : {}}
           >
             {t.label}
             {t.id === 'positions' && posCount > 0 && (
-              <span className="ml-1.5 text-xs bg-accent-blue/30 text-accent-blue px-1.5 py-0.5 rounded-full">{posCount}</span>
+              <span className="ml-1.5 text-xs bg-accent-green/20 text-accent-green px-1.5 py-0.5 rounded border border-accent-green/30">{posCount}</span>
             )}
           </button>
         ))}
@@ -638,7 +583,6 @@ const STAT_PERIODS = [
 ]
 
 function Dashboard({ posCount, onRefresh }) {
-  const [days, setDays] = useState(7)
   const [statPeriod, setStatPeriod] = useState('all')
   const [stats, setStats] = useState(null)
   const [statsLoading, setStatsLoading] = useState(false)
@@ -661,9 +605,9 @@ function Dashboard({ posCount, onRefresh }) {
   return (
     <div className="space-y-5">
 
-      {/* 1. 统计卡片 + 时段切换 */}
+      {/* 1. 统计卡片 + 时段切换 — 已合并进下方 AnalyticsPanel，暂时隐藏 */}
+      {/*
       <div>
-        {/* 时段切换条 */}
         <div className="flex items-center gap-1.5 mb-2">
           <span className="text-[11px] text-gray-600 mr-1">卡片时段</span>
           {STAT_PERIODS.map(p => (
@@ -671,15 +615,15 @@ function Dashboard({ posCount, onRefresh }) {
               key={p.key}
               onClick={() => setStatPeriod(p.key)}
               className={clsx(
-                'text-xs px-2.5 py-0.5 rounded-full border transition-all',
+                'text-xs px-2.5 py-0.5 rounded border transition-all font-mono tracking-wide',
                 statPeriod === p.key
-                  ? 'border-accent-blue text-accent-blue bg-accent-blue/15 font-semibold'
-                  : 'border-dark-500 text-gray-600 hover:text-gray-300 hover:border-gray-500'
+                  ? 'border-accent-green/50 text-accent-green bg-accent-green/10'
+                  : 'border-dark-500 text-gray-600 hover:text-gray-400 hover:border-dark-400'
               )}
             >{p.label}</button>
           ))}
           {statsLoading && (
-            <span className="w-1.5 h-1.5 rounded-full bg-accent-blue animate-ping ml-1" />
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-ping ml-1" />
           )}
           {stats && statPeriod !== 'all' && (
             <span className="text-[10px] text-gray-600 ml-auto">
@@ -701,40 +645,19 @@ function Dashboard({ posCount, onRefresh }) {
           <GasCard stats={stats} index={4} period={statPeriod} />
         </div>
       </div>
+      */}
 
-      {/* 2. 信号流 */}
-      <SignalFeed />
+      {/* 2. 信号流 — 已隐藏 */}
+      {/* <SignalFeed /> */}
 
-      {/* 3. 持仓表 */}
-      <PositionsTable onRefresh={onRefresh} />
+      {/* 3. 持仓表（Bot持仓 / 链上余额）— 已隐藏 */}
+      {/* <PositionsTable onRefresh={onRefresh} /> */}
 
-      {/* 3. 钱包资产总览 */}
-      <WalletPortfolio />
+      {/* 4. 钱包资产总览 — 已隐藏 */}
+      {/* <WalletPortfolio /> */}
 
-      {/* 时间范围选择器（分析面板用） */}
-      <div className="flex items-center gap-2 pt-2 border-t border-dark-600">
-        <span className="text-xs text-gray-500 font-medium">分析时段:</span>
-        {[1, 7, 14, 30].map(d => (
-          <button
-            key={d}
-            onClick={() => setDays(d)}
-            className={clsx(
-              'text-xs px-3 py-1 rounded-full border transition-colors',
-              days === d
-                ? 'border-accent-blue text-accent-blue bg-accent-blue/10'
-                : 'border-dark-500 text-gray-500 hover:text-gray-300'
-            )}
-          >
-            {d === 1 ? '今天' : `${d} 天`}
-          </button>
-        ))}
-      </div>
-
-      {/* 4. 分析内容 */}
-      <AnalyticsPanel days={days} />
-
-      {/* 5. Gas 消耗明细 */}
-      <GasBreakdown />
+      {/* 4. 分析内容 (含时段选择器) */}
+      <AnalyticsPanel posCount={posCount} />
     </div>
   )
 }
@@ -845,7 +768,7 @@ function SideLog({ logs, connected }) {
           {/* 路由标签 */}
           <div className="pl-0.5">
             <span className="inline-flex items-center gap-1 text-[10px] text-blue-400/80 bg-blue-900/20 border border-blue-800/30 px-1.5 py-0.5 rounded font-mono">
-              ⚡ {d.route || 'AVE Trade'}
+              ⚡ {d.route || 'Solana Trade'}
             </span>
           </div>
         </div>
@@ -924,7 +847,7 @@ function SideLog({ logs, connected }) {
                 ? 'text-yellow-400/80 bg-yellow-900/20 border-yellow-800/30'
                 : 'text-blue-400/80 bg-blue-900/20 border-blue-800/30'
             )}>
-              ⚡ {d.route || 'AVE Trade'}
+              ⚡ {d.route || 'Solana Trade'}
             </span>
           </div>
         </div>
@@ -1095,6 +1018,287 @@ const CHAIN_CFG = {
   XLAYER: { color: '#00D4AA', dot: 'bg-teal-400',   text: 'text-teal-300',   dimText: 'text-teal-400/60'   },
 }
 
+// ── 贪婪指数（横向赛博朋克版 V2）─────────────────────────────────
+const SEG_COUNT = 16
+const SEG_COLORS = [
+  '#ef4444','#ef4444','#ef4444',        // 极度恐惧 (0-18)
+  '#f97316','#f97316',                   // 恐惧
+  '#eab308','#60a5fa','#60a5fa','#60a5fa','#eab308', // 中性
+  '#22c55e','#22c55e','#22c55e',        // 贪婪
+  '#f59e0b','#f59e0b','#f59e0b',        // 极度贪婪
+]
+const TICKS = [0, 25, 50, 75, 100]
+
+export function MemeGaugeLarge({ loading = false }) {
+  const { t } = useTranslation()
+  const [score, setScore] = useState(50)
+
+  useEffect(() => {
+    const update = () => {
+      const d = window.__memeData || []
+      if (!d.length) return
+      const avg = d.reduce((s, x) => s + (parseFloat(x.win_rate) || 0), 0) / d.length
+      setScore(Math.round(Math.min(100, Math.max(0, avg))))
+    }
+    update()
+    window.addEventListener('meme-data', update)
+    return () => window.removeEventListener('meme-data', update)
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="cp-gauge flex items-center gap-4 px-3 pt-2 pb-6 w-full" style={{ minWidth: 0 }}>
+        <div className="flex flex-col leading-none gap-1.5 shrink-0">
+          <h2 className="cp-modal-title !text-[22px] !mb-0 truncate">{t('gauge.title')}</h2>
+        </div>
+        <CyberLoader className="!py-2 !min-h-0 flex-1" meta={t('gauge.title')} />
+      </div>
+    )
+  }
+
+  const labelKey = score >= 70 ? 'extreme_greed' : score >= 55 ? 'greed' : score >= 45 ? 'neutral' : score >= 30 ? 'fear' : 'extreme_fear'
+  const color    = score >= 70 ? '#f59e0b'       : score >= 55 ? '#22c55e' : score >= 45 ? '#60a5fa' : score >= 30 ? '#f97316' : '#ef4444'
+  const activeUpTo = Math.floor((score / 100) * SEG_COUNT)
+
+  return (
+    <div className="cp-gauge flex items-center gap-4 px-3 pt-2 pb-6 w-full" style={{ minWidth: 0 }}>
+      {/* 左：标题 + 大号数值 */}
+      <div className="flex flex-col leading-none gap-1.5 shrink-0">
+        <h2 className="cp-modal-title !text-[22px] !mb-0 truncate">{t('gauge.title')}</h2>
+        <span className="cp-gauge-score text-3xl font-black font-mono" style={{ color }}>
+          {String(score).padStart(2, '0')}
+        </span>
+      </div>
+
+      {/* 中：分段霓虹条 + 刻度 + 扫描光束 + 闪电指针 */}
+      <div className="relative flex-1 min-w-[160px] pb-6">
+        <div className="cp-gauge-bar">
+          {Array.from({ length: SEG_COUNT }, (_, i) => {
+            const isActive = i < activeUpTo
+            const segColor = SEG_COLORS[i] || '#9ca3af'
+            return (
+              <div
+                key={i}
+                className={clsx('cp-gauge-seg', isActive && 'active')}
+                style={isActive
+                  ? { background: segColor, boxShadow: `0 0 8px ${segColor}, inset 0 0 6px ${segColor}aa` }
+                  : undefined}
+              />
+            )
+          })}
+          <div className="cp-gauge-scan" />
+          <div className="cp-gauge-marker" style={{ left: `${score}%`, color }} />
+        </div>
+        {/* 刻度尺 */}
+        <div className="cp-gauge-ticks">
+          {TICKS.map(v => (
+            <span key={v}>
+              <span className="cp-gauge-tick" style={{ left: `${v}%` }} />
+              <span className="cp-gauge-tick-label" style={{ left: `${v}%` }}>{v}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* 右：状态文字带方括号闪烁 */}
+      <span className="text-base font-bold font-mono whitespace-nowrap shrink-0 tracking-[0.1em]"
+            style={{ color, textShadow: `0 0 6px ${color}, 0 0 16px ${color}80` }}>
+        <span className="cp-gauge-bracket mr-1">«</span>
+        {t(`gauge.${labelKey}`)}
+        <span className="cp-gauge-bracket cp-gauge-bracket-r ml-1">»</span>
+      </span>
+    </div>
+  )
+}
+
+function SideNav({ tab, onSelect }) {
+  const { t } = useTranslation()
+  const items = [
+    { label: t('nav.home'),     tab: 'leaderboard', icon: 'grid'  },
+    { label: t('nav.earnings'), tab: 'dashboard',   icon: 'trend' },
+    { label: t('nav.settings'), tab: 'config',      icon: 'gear'  },
+  ]
+  return (
+    <aside className="cp-side-nav w-[88px] shrink-0 hidden md:flex flex-col items-stretch py-4 gap-1">
+      {items.map(({ label, icon, tab: itemTab }) => {
+        const path = TAB_PATHS[itemTab]
+        const active = tab === itemTab
+        return (
+          <a key={itemTab} href={path}
+            onClick={(e) => { e.preventDefault(); onSelect(itemTab) }}
+            className={clsx('cp-side-btn', active && 'cp-side-btn-active')}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              {icon === 'grid' && <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>}
+              {icon === 'trend' && <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>}
+              {icon === 'gear' && <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>}
+            </svg>
+            <span className="cp-side-label">{label}</span>
+          </a>
+        )
+      })}
+    </aside>
+  )
+}
+
+function SearchBar() {
+  const { t } = useTranslation()
+  const [val, setVal] = useState('')
+  return (
+    <span className="cp-search-wrap hidden md:block">
+      <input
+        type="text"
+        placeholder={t('header.search_placeholder')}
+        value={val}
+        onChange={e => {
+          setVal(e.target.value)
+          window.__leaderboardSearch?.(e.target.value)
+        }}
+        className="cp-search-input w-48 lg:w-64"
+      />
+    </span>
+  )
+}
+
+const LANGS = [
+  { code: 'zh-CN', label: '中文简体' },
+  { code: 'zh-TW', label: '中文繁體' },
+  { code: 'en',    label: 'English' },
+  { code: 'ja',    label: '日本語' },
+  { code: 'ko',    label: '한국어' },
+]
+
+function LangSelector() {
+  const { i18n } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const cur = LANGS.find(l => l.code === i18n.language) || LANGS[0]
+  const choose = (code) => {
+    i18n.changeLanguage(code)
+    setOpen(false)
+  }
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-white/70 hover:text-white border border-white/15 rounded-lg hover:border-white/30 transition-colors">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span>{cur?.label}</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 rounded-lg border border-white/10 overflow-hidden shadow-xl" style={{background:'#0a0e0d', minWidth: 130}}>
+          {LANGS.map(l => (
+            <button key={l.code} onClick={() => choose(l.code)}
+              className={clsx('w-full text-left px-3 py-2 text-sm hover:bg-white/5 transition-colors', i18n.language === l.code ? 'text-accent-green' : 'text-white/60')}>
+              {l.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WalletButton() {
+  const { t } = useTranslation()
+  const [open, setOpen]     = useState(false)
+  const [status, setStatus] = useState(null)
+
+  const refresh = useCallback(async () => {
+    try { setStatus(await getWalletStatus()) }
+    catch { setStatus({ exists: false }) }
+  }, [])
+  useEffect(() => { refresh() }, [refresh])
+
+  const exists = status?.exists
+  const label  = exists ? t('header.wallet') : t('header.wallet_create')
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-accent-green border border-accent-green/40 rounded-lg hover:bg-accent-green/10 hover:border-accent-green/70 transition-all">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+        {label}
+      </button>
+      {open && <WalletModal onClose={() => { setOpen(false); refresh() }} />}
+    </>
+  )
+}
+
+function MarketBar() {
+  const { t } = useTranslation()
+  const [prices, setPrices] = useState(null)
+  const [cap, setCap] = useState(null)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [p, g] = await Promise.all([
+          fetch('/api/analytics/market/prices').then(r => r.json()),
+          fetch('/api/analytics/market/global').then(r => r.json()),
+        ])
+        setPrices(p)
+        setCap(g.data)
+      } catch {}
+    }
+    load()
+    const t = setInterval(load, 60000)
+    return () => clearInterval(t)
+  }, [])
+
+  const fmt = (n) => n >= 1e12 ? `$${(n/1e12).toFixed(2)}T` : n >= 1e9 ? `$${(n/1e9).toFixed(2)}B` : `$${n?.toFixed(2)}`
+  const fmtPrice = (n) => n >= 1000 ? `$${n.toLocaleString('en-US', {maximumFractionDigits:2})}` : `$${n?.toFixed(2)}`
+
+  const coins = [
+    { id: 'ethereum',    label: 'ETH',  color: 'text-blue-300' },
+    { id: 'binancecoin', label: 'BNB',  color: 'text-yellow-300' },
+    { id: 'solana',      label: 'SOL',  color: 'text-purple-300' },
+  ]
+
+  return (
+    <div className="border-b border-white/8 px-4 md:px-6 h-[48px] flex items-center">
+      <div className="flex items-center gap-6 whitespace-nowrap text-sm flex-1 min-w-0 overflow-x-auto scrollbar-none cp-market">
+        {cap && (
+          <>
+            <span className="cp-market-item">
+              <span className="cp-market-label">{t('market.total_cap')}</span>
+              <span className="cp-market-value font-mono">{fmt(cap.total_market_cap?.usd)}</span>
+              {cap.market_cap_change_percentage_24h_usd != null && (
+                <span className={clsx('cp-market-chg font-mono', cap.market_cap_change_percentage_24h_usd >= 0 ? 'cp-market-up' : 'cp-market-down')}>
+                  {cap.market_cap_change_percentage_24h_usd >= 0 ? '▲' : '▼'}{Math.abs(cap.market_cap_change_percentage_24h_usd).toFixed(2)}%
+                </span>
+              )}
+            </span>
+            <span className="cp-market-item">
+              <span className="cp-market-label">{t('market.vol_24h')}</span>
+              <span className="cp-market-value font-mono">{fmt(cap.total_volume?.usd)}</span>
+            </span>
+            <span className="w-px h-3 bg-white/15 shrink-0" />
+          </>
+        )}
+        {coins.map(({ id, label, color }) => {
+          const p = prices?.[id]
+          if (!p) return null
+          const chg = p.usd_24h_change
+          return (
+            <span key={id} className="cp-market-item">
+              <span className={clsx('cp-market-coin font-mono', color)}>{label}</span>
+              <span className="cp-market-value font-mono tabular-nums">{fmtPrice(p.usd)}</span>
+              <span className={clsx('cp-market-chg font-mono tabular-nums', chg >= 0 ? 'cp-market-up' : 'cp-market-down')}>
+                {chg >= 0 ? '+' : ''}{chg?.toFixed(2)}%
+              </span>
+            </span>
+          )
+        })}
+        {!prices && <span className="cp-market-label">{t('common.loading')}</span>}
+      </div>
+      {/* 右侧工具栏 */}
+      <div className="flex items-center gap-2 shrink-0 ml-4">
+        <LangSelector />
+        <WalletButton />
+      </div>
+    </div>
+  )
+}
+
 // ── 移动端 Header 简要资产行 ──────────────────────────────────────
 function MobileHeaderStats({ stats, posCount, connected }) {
   const [portfolio, setPortfolio] = useState(null)
@@ -1247,31 +1451,31 @@ function HeaderStats({ stats, posCount }) {
       })}
 
       {portfolio?.chains.some(c => c.native_balance !== null || c.usdt_balance !== null) && (
-        <div className="w-px h-8 bg-dark-500" />
+        <div className="w-px h-8 bg-accent-green/15" />
       )}
 
       {/* ── 总资产 ── */}
       <div className="flex flex-col items-center">
-        <span className="text-[10px] text-gray-600 leading-none mb-0.5 flex items-center gap-1">
-          总资产
-          {assetLoading && <span className="w-1 h-1 rounded-full bg-yellow-500/80 animate-ping" />}
+        <span className="text-[9px] text-gray-600 leading-none mb-0.5 font-mono tracking-widest flex items-center gap-1">
+          ASSETS
+          {assetLoading && <span className="w-1 h-1 rounded-full bg-accent-yellow/80 animate-ping" />}
         </span>
-        <Num val={assetStr} rollKey={assetKey} color="text-yellow-400" />
+        <Num val={assetStr} rollKey={assetKey} color="text-accent-yellow" />
       </div>
-      <div className="w-px h-6 bg-dark-500" />
+      <div className="w-px h-6 bg-accent-green/15" />
       <div className="flex flex-col items-center">
-        <span className="text-[10px] text-gray-600 leading-none mb-0.5">净盈亏</span>
+        <span className="text-[9px] text-gray-600 leading-none mb-0.5 font-mono tracking-widest">PNL</span>
         <Num val={pnlStr} rollKey={pnlKey} color={todayPnl === null ? 'text-gray-600' : todayPnl >= 0 ? 'text-accent-green' : 'text-accent-red'} />
       </div>
-      <div className="w-px h-6 bg-dark-500" />
+      <div className="w-px h-6 bg-accent-green/15" />
       <div className="flex flex-col items-center">
-        <span className="text-[10px] text-gray-600 leading-none mb-0.5">总交易</span>
+        <span className="text-[9px] text-gray-600 leading-none mb-0.5 font-mono tracking-widest">TRADES</span>
         <Num val={tradeStr} rollKey={tradeKey} color="text-gray-300" />
       </div>
-      <div className="w-px h-6 bg-dark-500" />
+      <div className="w-px h-6 bg-accent-green/15" />
       <div className="flex flex-col items-center">
-        <span className="text-[10px] text-gray-600 leading-none mb-0.5">持仓</span>
-        <Num val={posStr} rollKey={posKey} color={posCount > 0 ? 'text-accent-yellow' : 'text-gray-500'} />
+        <span className="text-[9px] text-gray-600 leading-none mb-0.5 font-mono tracking-widest">POS</span>
+        <Num val={posStr} rollKey={posKey} color={posCount > 0 ? 'text-accent-yellow' : 'text-gray-600'} />
       </div>
     </div>
   )
@@ -1306,11 +1510,11 @@ function fmtPrice(p) {
 }
 
 // ── 历史页小统计格子 ──────────────────────────────────────────────────────────
-function MiniStat({ label, value, color = 'text-gray-200' }) {
+function MiniStat({ label, value, color = 'text-gray-300' }) {
   return (
-    <div className="bg-dark-800 rounded-lg px-3 py-2 border border-dark-600">
-      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
-      <div className={clsx('text-sm font-semibold font-mono', color)}>{value}</div>
+    <div className="w3-card px-3 py-2">
+      <div className="text-[10px] text-gray-600 mb-0.5 font-mono tracking-widest uppercase">{label}</div>
+      <div className={clsx('text-sm font-bold font-mono', color)}>{value}</div>
     </div>
   )
 }
@@ -1392,7 +1596,7 @@ function SignalFeed() {
                 className={clsx(
                   'text-xs px-2 py-0.5 rounded border transition-colors',
                   limit === n
-                    ? 'border-accent-blue text-accent-blue bg-accent-blue/10'
+                    ? 'border-accent-green text-accent-green bg-accent-green/10'
                     : 'border-dark-500 text-gray-600 hover:text-gray-300 hover:border-gray-500'
                 )}
               >{n}</button>
@@ -2002,7 +2206,7 @@ function SignalOverviewCard() {
               onClick={() => setPeriod(k)}
               className={clsx(
                 'text-[10px] px-1 py-0.5 rounded transition-colors',
-                period === k ? 'bg-accent-blue/30 text-accent-blue' : 'text-gray-600 hover:text-gray-400'
+                period === k ? 'bg-accent-green/30 text-accent-green' : 'text-gray-600 hover:text-gray-400'
               )}
             >{v}</button>
           ))}
@@ -2034,7 +2238,7 @@ function SignalOverviewCard() {
             </div>
             <div>
               <div className="text-[10px] text-gray-600">已买入</div>
-              <div className="text-xs font-mono text-accent-blue">{data.bought}</div>
+              <div className="text-xs font-mono text-accent-green">{data.bought}</div>
             </div>
           </div>
         </>
@@ -2045,85 +2249,3 @@ function SignalOverviewCard() {
   )
 }
 
-// ── Gas 消耗明细列表 ─────────────────────────────────────────────────────────
-const REASON_ICON = {
-  take_profit: '🎯', stop_loss: '🛡', time_limit: '⏰',
-  manual: '👆', zero_balance: '💀', sell_failed: '⚠',
-}
-const REASON_ZH = {
-  take_profit: '止盈', stop_loss: '止损', time_limit: '超时',
-  manual: '手动', zero_balance: '归零', sell_failed: '放弃',
-}
-
-function GasBreakdown() {
-  const [trades, setTrades] = useState([])
-  const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    getTradeHistory(50, 0).then(d => setTrades(d)).catch(() => {})
-  }, [])
-
-  const withGas = trades.filter(t => t.gas_fee_usd > 0).sort((a, b) => b.gas_fee_usd - a.gas_fee_usd)
-  const totalGas = withGas.reduce((s, t) => s + t.gas_fee_usd, 0)
-  const avgGas = withGas.length ? totalGas / withGas.length : 0
-  const shown = expanded ? withGas : withGas.slice(0, 8)
-
-  if (withGas.length === 0) return null
-
-  return (
-    <div className="bg-dark-800 border border-dark-600 rounded-xl p-4 space-y-3">
-      {/* 标题 + 汇总 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-300">Gas 消耗明细</span>
-          <span className="text-xs text-gray-500">({withGas.length} 笔)</span>
-        </div>
-        <div className="flex items-center gap-4 text-[11px]">
-          <span className="text-gray-500">累计 <span className="font-mono text-orange-400">{totalGas.toFixed(3)}U</span></span>
-          <span className="text-gray-500">均值 <span className="font-mono text-orange-400">{avgGas.toFixed(3)}U/笔</span></span>
-        </div>
-      </div>
-
-      {/* Gas 条形列表 */}
-      <div className="space-y-1.5">
-        {shown.map(t => {
-          const display = t.symbol || t.token_name || (t.ca.slice(0, 6) + '…' + t.ca.slice(-4))
-          const netPnl = (t.pnl_usdt || 0) - t.gas_fee_usd
-          const barPct = totalGas > 0 ? Math.min((t.gas_fee_usd / totalGas) * 100, 100) : 0
-          const icon = REASON_ICON[t.reason] || '•'
-          const zh = REASON_ZH[t.reason] || t.reason
-          return (
-            <div key={t.id} className="flex items-center gap-1.5 md:gap-2 group">
-              {/* 图标 + 代币名 */}
-              <span className="text-[10px] shrink-0">{icon}</span>
-              <span className="text-xs text-gray-300 w-16 md:w-20 shrink-0 truncate" title={display}>{display}</span>
-              {/* 进度条 */}
-              <div className="flex-1 h-1.5 bg-dark-600 rounded-full overflow-hidden">
-                <div className="h-full bg-orange-500/60 rounded-full bar-fill" style={{ width: `${barPct}%`, animationDuration: '1s' }} />
-              </div>
-              {/* Gas 金额 */}
-              <span className="font-mono text-orange-400 text-[11px] w-12 md:w-16 text-right shrink-0">
-                {t.gas_fee_usd.toFixed(3)}U
-              </span>
-              {/* 净盈亏 */}
-              <span className={clsx('font-mono text-[11px] w-12 md:w-16 text-right shrink-0', netPnl >= 0 ? 'text-accent-green' : 'text-red-400')}>
-                {netPnl >= 0 ? '+' : ''}{netPnl.toFixed(3)}U
-              </span>
-              {/* 原因标签 — 移动端隐藏 */}
-              <span className="text-gray-600 text-[10px] w-8 text-right shrink-0 hidden sm:block">{zh}</span>
-            </div>
-          )
-        })}
-      </div>
-
-      {withGas.length > 8 && (
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="text-xs text-gray-500 hover:text-gray-300 w-full text-center py-1 border-t border-dark-600 mt-1"
-        >
-          {expanded ? '收起' : `显示全部 ${withGas.length} 笔`}
-        </button>
-      )}
-    </div>
-  )
-}

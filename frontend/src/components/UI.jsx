@@ -1,7 +1,6 @@
 import { clsx } from 'clsx'
 import { useState, useEffect, useRef } from 'react'
 
-// 值变化时触发数字滚入动画
 function useRoll(value) {
   const prev = useRef(value)
   const [key, setKey] = useState(0)
@@ -15,23 +14,47 @@ function useRoll(value) {
 
 export function Card({ children, className, style }) {
   return (
-    <div className={clsx('bg-dark-800 rounded-xl border border-dark-600 p-4', className)} style={style}>
+    <div className={clsx('w3-card p-4', className)} style={style}>
       {children}
+    </div>
+  )
+}
+
+// 赛博朋克风格 Loading — 扫描条 + 闪烁标签 + 闪烁光标
+export function CyberLoader({ label = 'LOADING', meta, className, style }) {
+  return (
+    <div className={clsx('cyber-loader', className)} style={style}>
+      <div className="cyber-loader-frame">
+        <div className="cyber-loader-bar" />
+        <div className="cyber-loader-row">
+          <span className="cyber-loader-bracket">«</span>
+          <span className="cyber-loader-label">
+            {label}
+            <span className="cyber-loader-dot" />
+          </span>
+          <span className="cyber-loader-bracket">»</span>
+        </div>
+      </div>
+      {meta && (
+        <div className="cyber-loader-meta">
+          {meta}<span className="cyber-loader-meta-blink" />
+        </div>
+      )}
     </div>
   )
 }
 
 export function Badge({ children, color = 'blue' }) {
   const colors = {
-    blue: 'bg-blue-900/40 text-blue-300 border-blue-700',
-    green: 'bg-green-900/40 text-green-300 border-green-700',
-    red: 'bg-red-900/40 text-red-300 border-red-700',
-    yellow: 'bg-yellow-900/40 text-yellow-300 border-yellow-700',
-    purple: 'bg-purple-900/40 text-purple-300 border-purple-700',
-    gray: 'bg-gray-800 text-gray-400 border-gray-600',
+    blue:   'bg-accent-green/10 text-accent-green border-accent-green/30',
+    green:  'bg-accent-green/10 text-accent-green border-accent-green/30',
+    red:    'bg-accent-red/10 text-accent-red border-accent-red/30',
+    yellow: 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30',
+    purple: 'bg-accent-purple/10 text-accent-purple border-accent-purple/30',
+    gray:   'bg-dark-600 text-gray-400 border-dark-500',
   }
   return (
-    <span className={clsx('text-xs px-2 py-0.5 rounded border font-mono', colors[color])}>
+    <span className={clsx('text-xs px-2 py-0.5 rounded border font-mono tracking-wide', colors[color])}>
       {children}
     </span>
   )
@@ -40,7 +63,7 @@ export function Badge({ children, color = 'blue' }) {
 export function PnlValue({ value, suffix = 'U' }) {
   const isPos = value >= 0
   return (
-    <span className={isPos ? 'text-accent-green font-mono' : 'text-accent-red font-mono'}>
+    <span className={clsx('font-mono', isPos ? 'pnl-positive' : 'pnl-negative')}>
       {isPos ? '+' : ''}{typeof value === 'number' ? value.toFixed(4) : value}{suffix}
     </span>
   )
@@ -48,18 +71,19 @@ export function PnlValue({ value, suffix = 'U' }) {
 
 export function Button({ children, onClick, disabled, variant = 'primary', className, size = 'md' }) {
   const variants = {
-    primary: 'bg-accent-blue hover:bg-blue-500 text-white',
-    danger: 'bg-accent-red hover:bg-red-500 text-white',
-    ghost: 'bg-dark-600 hover:bg-dark-500 text-gray-300',
-    success: 'bg-green-700 hover:bg-green-600 text-white',
+    primary: 'bg-accent-green/15 hover:bg-accent-green/25 text-accent-green border border-accent-green/40 hover:border-accent-green/70 hover:shadow-[0_0_12px_#00ff8730]',
+    danger:  'bg-accent-red/15 hover:bg-accent-red/25 text-accent-red border border-accent-red/40 hover:border-accent-red/70 hover:shadow-[0_0_12px_#ff2d5530]',
+    ghost:   'bg-dark-700 hover:bg-dark-600 text-gray-400 border border-dark-500 hover:border-dark-400',
+    success: 'bg-accent-green/15 hover:bg-accent-green/25 text-accent-green border border-accent-green/40 hover:border-accent-green/70 hover:shadow-[0_0_12px_#00ff8730]',
   }
-  const sizes = { sm: 'px-3 py-1 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-6 py-3 text-base' }
+  const sizes = { sm: 'px-3 py-1 text-xs', md: 'px-4 py-1.5 text-sm', lg: 'px-6 py-2.5 text-base' }
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className={clsx(
-        'rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+        'cp-btn font-mono font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed tracking-wide',
+        variant === 'danger' && 'cp-btn-magenta',
         variants[variant], sizes[size], className
       )}
     >
@@ -70,53 +94,58 @@ export function Button({ children, onClick, disabled, variant = 'primary', class
 
 export function Toggle({ checked, onChange, label }) {
   return (
-    <label className="flex items-center gap-3 cursor-pointer select-none">
+    <label className="flex items-center gap-2.5 cursor-pointer select-none">
       <div
         onClick={() => onChange(!checked)}
         className={clsx(
-          'relative w-12 h-6 rounded-full transition-colors',
-          checked ? 'bg-accent-green' : 'bg-dark-500'
+          'relative w-11 h-5 rounded-full transition-all border',
+          checked
+            ? 'bg-accent-green/20 border-accent-green/50 shadow-[0_0_8px_#00ffaa30]'
+            : 'bg-dark-600 border-dark-500'
         )}
       >
         <div className={clsx(
-          'absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow',
-          checked ? 'left-7' : 'left-1'
+          'absolute top-0.5 w-4 h-4 rounded-full transition-all shadow',
+          checked ? 'left-6 bg-accent-green shadow-[0_0_6px_#00ffaa]' : 'left-0.5 bg-gray-500'
         )} />
       </div>
-      {label && <span className="text-sm text-gray-300">{label}</span>}
+      {label && <span className="text-xs font-mono text-gray-400 tracking-wide">{label}</span>}
     </label>
   )
 }
 
 export function StatCard({ label, value, sub, color = 'white', index = 0, winRate }) {
-  const colors = { white: 'text-white', green: 'text-accent-green', red: 'text-accent-red', yellow: 'text-accent-yellow' }
+  const colors = {
+    white:  'text-white',
+    green:  'text-accent-green',
+    red:    'text-accent-red',
+    yellow: 'text-accent-yellow',
+  }
   const rollKey = useRoll(value)
   return (
-    <Card
-      className="stat-enter"
-      style={{ animationDelay: `${index * 80}ms` }}
-    >
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
+    <Card className="stat-enter" style={{ animationDelay: `${index * 80}ms` }}>
+      <div className="text-xs text-gray-600 mb-1 font-mono tracking-widest uppercase">{label}</div>
       <div key={rollKey} className={clsx('text-2xl font-bold font-mono count-roll', colors[color])}>{value}</div>
       {winRate != null ? (
         <div className="mt-2">
-          <div className="flex justify-between text-xs text-gray-600 mb-0.5">
-            <span>胜率</span><span className="text-gray-400">{winRate}%</span>
+          <div className="flex justify-between text-xs text-gray-600 mb-0.5 font-mono">
+            <span>WIN</span><span className="text-gray-500">{winRate}%</span>
           </div>
-          <div className="h-1 bg-dark-600 rounded-full overflow-hidden">
+          <div className="h-px bg-dark-500 rounded-full overflow-hidden">
             <div
               key={rollKey}
               className="h-full rounded-full bar-fill"
               style={{
                 width: `${Math.min(winRate, 100)}%`,
-                backgroundColor: winRate >= 50 ? '#00ff87' : winRate >= 30 ? '#facc15' : '#ff4466',
+                backgroundColor: winRate >= 50 ? '#00ffaa' : winRate >= 30 ? '#ffcc00' : '#ff3366',
+                boxShadow: `0 0 6px ${winRate >= 50 ? '#00ffaa' : winRate >= 30 ? '#ffcc00' : '#ff3366'}`,
                 animationDelay: `${index * 80 + 200}ms`,
               }}
             />
           </div>
         </div>
       ) : sub ? (
-        <div className="text-xs text-gray-500 mt-1">{sub}</div>
+        <div className="text-xs text-gray-600 mt-1 font-mono">{sub}</div>
       ) : null}
     </Card>
   )

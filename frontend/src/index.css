@@ -1,28 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
-  background-color: #0a0a0f;
-  color: #e2e8f0;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  background-color: rgb(10 10 10);
+  background-image:
+    radial-gradient(ellipse 90% 50% at 50% 0%, rgba(0, 255, 135, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 40% at 100% 100%, rgba(255, 0, 200, 0.04) 0%, transparent 60%),
+    linear-gradient(rgba(0,255,135,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,135,0.012) 1px, transparent 1px);
+  background-size: auto, auto, 48px 48px, 48px 48px;
+  color: #d8e8e0;
+  font-family: "__Lato_06d0dd", "__Lato_Fallback_06d0dd", sans-serif;
   margin: 0;
   height: 100vh;
   overflow: hidden;
 }
 
-/* 移动端允许 body 滚动 */
-@media (max-width: 767px) {
-  body, #root {
-    height: auto;
-    overflow: visible;
-  }
+/* CRT scanline overlay — page-wide, subtle */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 255, 135, 0.025) 2px,
+    rgba(0, 255, 135, 0.025) 3px
+  );
 }
 
+/* Slow grid drift — 48px periodic, drifts every 60s */
+@keyframes bg-grid-drift {
+  0%   { background-position: 0 0, 0 0,    0 0,    0 0; }
+  100% { background-position: 0 0, 0 0, 48px 48px, 48px 48px; }
+}
+body { animation: bg-grid-drift 60s linear infinite; }
+
+/* Slow vertical beam sweeping the entire viewport */
+@keyframes bg-beam {
+  0%   { transform: translateY(-30vh); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(130vh); opacity: 0; }
+}
+body::before {
+  content: '';
+  position: fixed; left: 0; right: 0; top: 0;
+  height: 240px;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(0, 255, 135, 0.025) 40%,
+    rgba(255, 0, 200, 0.03) 50%,
+    rgba(0, 212, 255, 0.025) 60%,
+    transparent 100%);
+  animation: bg-beam 14s linear infinite;
+}
+
+@media (max-width: 767px) {
+  body, #root { height: auto; overflow: visible; }
+}
 
 #root {
   height: 100vh;
@@ -31,49 +76,194 @@ body {
   overflow: hidden;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #12121a;
-}
-::-webkit-scrollbar-thumb {
-  background: #2d2d4e;
-  border-radius: 3px;
-}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #101412; }
+::-webkit-scrollbar-thumb { background: #00ff8730; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #00ff8760; }
 
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 
 .pnl-positive { color: #00ff87; }
-.pnl-negative { color: #ff4466; }
+.pnl-negative { color: #ff2d55; }
 
-.log-text { font-size: 15px; line-height: 1.6; }
+/* ── 赛博朋克 Loading ────────────────────────────────────────────── */
+.cyber-loader {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px 16px;
+  width: 100%;
+  min-height: 100px;
+}
+.cyber-loader-frame {
+  position: relative;
+  width: min(220px, 80%);
+  padding: 14px 18px;
+  border: 1px solid rgba(0, 255, 135, 0.35);
+  background:
+    linear-gradient(135deg, rgba(0, 30, 18, 0.45), rgba(15, 0, 22, 0.35));
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  box-shadow: 0 0 14px rgba(0, 255, 135, 0.12), inset 0 0 12px rgba(0, 255, 135, 0.05);
+  overflow: hidden;
+}
+.cyber-loader-frame::before {
+  content: "";
+  position: absolute;
+  top: 0; right: 0;
+  width: 16px; height: 16px;
+  background: linear-gradient(135deg, transparent 50%, rgba(0, 255, 135, 0.65) 50%);
+  pointer-events: none;
+}
+.cyber-loader-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 3px,
+    rgba(0, 255, 135, 0.04) 3px,
+    rgba(0, 255, 135, 0.04) 4px
+  );
+  pointer-events: none;
+}
+.cyber-loader-bar {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  background: rgba(0, 255, 135, 0.08);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.cyber-loader-bar::before {
+  content: "";
+  position: absolute;
+  top: 0; left: -35%;
+  width: 35%;
+  height: 100%;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(0, 255, 135, 0.4) 30%,
+    rgba(0, 255, 135, 1) 50%,
+    rgba(0, 255, 135, 0.4) 70%,
+    transparent 100%);
+  box-shadow: 0 0 12px rgba(0, 255, 135, 0.9), 0 0 4px rgba(0, 255, 135, 1);
+  animation: cyber-loader-sweep 1.4s cubic-bezier(0.4, 0.1, 0.6, 0.9) infinite;
+}
+@keyframes cyber-loader-sweep {
+  0%   { left: -35%; }
+  100% { left: 100%; }
+}
+.cyber-loader-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(0, 255, 135, 0.92);
+  text-shadow: 0 0 8px rgba(0, 255, 135, 0.55);
+  position: relative;
+  z-index: 1;
+}
+.cyber-loader-bracket {
+  color: rgba(255, 0, 200, 0.85);
+  text-shadow: 0 0 6px rgba(255, 0, 200, 0.55);
+  animation: cyber-loader-blink 1.1s steps(2, end) infinite;
+}
+@keyframes cyber-loader-blink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0.25; }
+}
+.cyber-loader-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  animation: cyber-loader-flicker 2.4s linear infinite;
+}
+@keyframes cyber-loader-flicker {
+  0%, 19.9%, 22%, 62.9%, 64%, 64.9%, 70%, 100% { opacity: 1; text-shadow: 0 0 8px rgba(0, 255, 135, 0.55); }
+  20%, 21.9%, 63%, 63.9%, 65%, 69.9%             { opacity: 0.5; text-shadow: none; }
+}
+.cyber-loader-dot {
+  display: inline-block;
+  min-width: 18px;
+  text-align: left;
+}
+.cyber-loader-dot::before {
+  content: "";
+  animation: cyber-loader-dot-text 1.2s steps(4, end) infinite;
+}
+@keyframes cyber-loader-dot-text {
+  0%   { content: ""; }
+  25%  { content: "."; }
+  50%  { content: ".."; }
+  75%  { content: "..."; }
+  100% { content: "...."; }
+}
+.cyber-loader-meta {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(180, 220, 200, 0.6);
+}
+.cyber-loader-meta-blink {
+  display: inline-block;
+  width: 6px;
+  height: 9px;
+  background: rgba(0, 255, 135, 0.85);
+  margin-left: 2px;
+  vertical-align: -1px;
+  animation: cyber-loader-blink 1s steps(2, end) infinite;
+  box-shadow: 0 0 4px rgba(0, 255, 135, 0.7);
+}
 
-[data-log-area] { font-size: 15px !important; line-height: 1.6 !important; }
+.log-text { font-size: 13px; line-height: 1.6; }
+[data-log-area] { font-size: 13px !important; line-height: 1.6 !important; }
 
-/* 价格上涨闪烁 */
+/* Neon card — #0a0a0a base */
+.w3-card {
+  background: rgb(20 20 20 / 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 255, 135, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(0,255,135,0.04), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.w3-card:hover {
+  border-color: rgba(0, 255, 135, 0.28);
+  box-shadow: 0 0 16px rgba(0,255,135,0.07), 0 0 0 1px rgba(0,255,135,0.1);
+}
+
+/* Neon border variants */
+.border-neon-green { border-color: #00ff8740; box-shadow: 0 0 8px #00ff8720; }
+.border-neon-red   { border-color: #ff2d5540; box-shadow: 0 0 8px #ff2d5520; }
+.border-neon-blue  { border-color: #00d4ff40; box-shadow: 0 0 8px #00d4ff20; }
+
 @keyframes flash-green {
-  0%   { color: #00ff87; text-shadow: 0 0 8px #00ff8780; }
+  0%   { color: #00ff87; text-shadow: 0 0 10px #00ff8790; }
   100% { color: inherit; text-shadow: none; }
 }
-/* 价格下跌闪烁 */
 @keyframes flash-red {
-  0%   { color: #ff4466; text-shadow: 0 0 8px #ff446680; }
+  0%   { color: #ff2d55; text-shadow: 0 0 10px #ff2d5590; }
   100% { color: inherit; text-shadow: none; }
 }
 .price-up   { animation: flash-green 0.8s ease-out; }
 .price-down { animation: flash-red   0.8s ease-out; }
 
-/* 日志条目入场动画 */
 @keyframes log-enter {
-  from { opacity: 0; transform: translateX(12px); }
+  from { opacity: 0; transform: translateX(10px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.log-item-enter { animation: log-enter 0.25s ease-out; }
+.log-item-enter { animation: log-enter 0.2s ease-out; }
 
-/* 卡片弹出 */
 @keyframes card-pop {
   0%   { opacity: 0; transform: translateY(-4px) scale(0.98); }
   60%  { transform: translateY(1px) scale(1.005); }
@@ -81,22 +271,38 @@ body {
 }
 .card-pop { animation: card-pop 0.3s ease-out; }
 
-/* Header 数字跳动 */
+@keyframes panel-swap {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.985); filter: blur(2px); }
+  60%  { filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+.panel-swap { animation: panel-swap 0.36s cubic-bezier(0.22, 0.61, 0.36, 1); }
+
+@keyframes panel-tile {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.panel-tile { animation: panel-tile 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
+@keyframes panel-bar {
+  from { opacity: 0; transform: scaleY(0.2); }
+  to   { opacity: 1; transform: scaleY(1); }
+}
+.panel-bar { animation: panel-bar 0.38s cubic-bezier(0.22, 0.61, 0.36, 1) both; transform-origin: bottom; }
+
 @keyframes num-bump {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.18); }
+  40%  { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
-.num-bump { animation: num-bump 0.35s ease-out; }
+.num-bump { animation: num-bump 0.3s ease-out; }
 
-/* Bot 呼吸光晕 */
 @keyframes bot-glow {
   0%, 100% { box-shadow: 0 0 6px 1px #00ff8730, 0 0 0 0 #00ff8720; }
-  50%       { box-shadow: 0 0 14px 4px #00ff8760, 0 0 24px 8px #00ff8720; }
+  50%       { box-shadow: 0 0 18px 4px #00ff8760, 0 0 32px 8px #00ff8720; }
 }
 .bot-glow { animation: bot-glow 2s ease-in-out infinite; }
 
-/* 心跳脉冲点 */
 @keyframes heartbeat {
   0%, 100% { transform: scale(1);    opacity: 1; }
   14%       { transform: scale(1.4); opacity: 1; }
@@ -105,7 +311,6 @@ body {
 }
 .heartbeat { animation: heartbeat 1.4s ease-in-out infinite; }
 
-/* 心跳线波形 */
 @keyframes pulse-bar {
   0%   { transform: scaleY(0.15); }
   50%  { transform: scaleY(1); }
@@ -113,46 +318,40 @@ body {
 }
 .pulse-bar { animation: pulse-bar var(--dur, 0.8s) ease-in-out infinite; transform-origin: bottom; }
 
-/* 数字滚动 */
 @keyframes count-up {
   from { transform: translateY(60%); opacity: 0; }
   to   { transform: translateY(0);   opacity: 1; }
 }
 .count-roll { animation: count-up 0.4s cubic-bezier(0.22,1,0.36,1); overflow: hidden; display: inline-block; }
 
-/* 徽章扫光效果 */
 @keyframes shimmer {
   0%   { transform: translateX(-100%) skewX(-15deg); }
   100% { transform: translateX(200%) skewX(-15deg); }
 }
 .shimmer-line {
-  position: absolute;
-  top: 0; left: 0;
-  width: 40%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  position: absolute; top: 0; left: 0;
+  width: 40%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0,255,135,0.1), transparent);
   animation: shimmer 3s ease-in-out infinite;
 }
 
-/* 卖出倒计时脉冲边框 */
 @keyframes sell-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255,68,102,0); }
-  50%      { box-shadow: 0 0 0 3px rgba(255,68,102,0.35); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,45,85,0); }
+  50%       { box-shadow: 0 0 0 3px rgba(255,45,85,0.35); }
 }
 .sell-pulse { animation: sell-pulse 1.5s ease-in-out infinite; }
+
 @keyframes stat-enter {
   from { opacity: 0; transform: translateY(10px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0)    scale(1); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .stat-enter { animation: stat-enter 0.45s cubic-bezier(0.22,1,0.36,1) both; }
 
-/* 胜率进度条填充 */
 @keyframes bar-fill {
   from { width: 0%; }
 }
 .bar-fill { animation: bar-fill 0.8s cubic-bezier(0.22,1,0.36,1) both; }
 
-/* 数字脉冲高亮（值变化时） */
 @keyframes val-pulse {
   0%   { opacity: 1; }
   30%  { opacity: 0.4; }
@@ -162,4 +361,1872 @@ body {
 }
 .val-pulse { animation: val-pulse 0.5s ease-out; }
 
+/* Neon text */
+.neon-green  { color: #00ff87; text-shadow: 0 0 10px #00ff8780; }
+.neon-red    { color: #ff2d55; text-shadow: 0 0 10px #ff2d5580; }
+.neon-blue   { color: #00d4ff; text-shadow: 0 0 10px #00d4ff80; }
+.neon-yellow { color: #ffe600; text-shadow: 0 0 10px #ffe60080; }
 
+/* Tab active */
+.tab-active {
+  color: #00ff87;
+  border-bottom-color: #00ff87;
+  text-shadow: 0 0 8px #00ff8760;
+}
+
+/* Neon row hover — left accent bar */
+.neon-row-hover {
+  border-left: 2px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.neon-row-hover:hover {
+  background: linear-gradient(90deg, rgba(0,255,135,0.05) 0%, transparent 60%);
+  border-left-color: #00ff8740;
+}
+.neon-row-active {
+  background: linear-gradient(90deg, rgba(0,255,135,0.08) 0%, transparent 60%);
+  border-left: 2px solid #00ff8760;
+}
+
+/* ── Web3 table effects ──────────────────────────────────────── */
+
+@property --w3-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes w3-rotate {
+  to { --w3-angle: 360deg; }
+}
+
+/* Animated rotating gradient border (uses mask to clip to a 1.5px ring) */
+.web3-frame {
+  position: relative;
+  border-radius: 10px;
+  isolation: isolate;
+  background: rgb(10 14 13 / 0.85);
+  box-shadow:
+    0 0 24px rgba(0,255,135,0.06),
+    inset 0 0 0 1px rgba(0,255,135,0.05);
+}
+.web3-frame {
+  /* Angular cyberpunk cut corners (top-left + bottom-right) */
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+.web3-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--w3-angle, 0deg),
+    transparent 0%,
+    rgba(255,0,200,0.95) 6%,
+    rgba(0,255,135,0.95) 13%,
+    rgba(0,212,255,0.95) 20%,
+    transparent 32%,
+    transparent 55%,
+    rgba(0,212,255,0.95) 68%,
+    rgba(0,255,135,0.95) 75%,
+    rgba(255,0,200,0.95) 82%,
+    transparent 92%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  animation: w3-rotate 5s linear infinite;
+  z-index: 1;
+}
+/* Brackets are redundant with cut corners — hide */
+.web3-frame > .w3-corners { display: none; }
+/* Fallback for browsers without @property: gentle pulse instead of rotation */
+@supports not (background: paint(something)) {
+  .web3-frame::before {
+    background: linear-gradient(90deg,
+      rgba(0,255,135,0.1),
+      rgba(0,255,135,0.6),
+      rgba(0,212,255,0.6),
+      rgba(0,255,135,0.1)
+    );
+    background-size: 300% 100%;
+    animation: w3-bg-shift 5s linear infinite;
+  }
+  @keyframes w3-bg-shift {
+    0%   { background-position: 0% 0%; }
+    100% { background-position: 300% 0%; }
+  }
+}
+
+/* Corner brackets (SVG-free) */
+.web3-frame > .w3-corners {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.web3-frame > .w3-corners::before,
+.web3-frame > .w3-corners::after,
+.web3-frame > .w3-corners > i::before,
+.web3-frame > .w3-corners > i::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  border-color: #00ff87;
+  filter: drop-shadow(0 0 4px rgba(0,255,135,0.7));
+}
+.web3-frame > .w3-corners::before { top: -1px; left: -1px;
+  border-top: 1.5px solid; border-left: 1.5px solid; border-top-left-radius: 10px; }
+.web3-frame > .w3-corners::after  { top: -1px; right: -1px;
+  border-top: 1.5px solid; border-right: 1.5px solid; border-top-right-radius: 10px; }
+.web3-frame > .w3-corners > i { position: absolute; inset: 0; }
+.web3-frame > .w3-corners > i::before { bottom: -1px; left: -1px; top: auto;
+  border-bottom: 1.5px solid; border-left: 1.5px solid; border-bottom-left-radius: 10px; }
+.web3-frame > .w3-corners > i::after  { bottom: -1px; right: -1px; top: auto;
+  border-bottom: 1.5px solid; border-right: 1.5px solid; border-bottom-right-radius: 10px; }
+
+/* Inner clip wrapper — keeps table corners inside the animated border */
+.web3-frame-inner {
+  position: relative;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Header row sweep underline — beam travels left↔right under thead */
+@keyframes w3-sweep {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+.web3-thead { position: relative; }
+.web3-thead::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #00ff87 50%, transparent);
+  box-shadow: 0 0 8px #00ff87aa;
+  animation: w3-sweep 3.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Row trace — bottom underline expands left→right on hover */
+.web3-row {
+  position: relative;
+  transition: background 0.2s ease;
+}
+.web3-row::after {
+  content: '';
+  position: absolute; left: 0; bottom: 0;
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, transparent, #00ff87 30%, #00d4ff 70%, transparent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  box-shadow: 0 0 6px #00ff8770;
+}
+.web3-row:hover {
+  background: linear-gradient(90deg, rgba(0,255,135,0.06) 0%, rgba(0,212,255,0.03) 50%, transparent 100%);
+}
+.web3-row:hover::after { transform: scaleX(1); }
+.web3-row.web3-row-active {
+  background: linear-gradient(90deg, rgba(0,255,135,0.09) 0%, rgba(0,212,255,0.04) 50%, transparent 100%);
+}
+.web3-row.web3-row-active::after { transform: scaleX(1); }
+
+/* Drifting scanline overlay — subtle horizontal beam slides top→bottom */
+@keyframes w3-scan {
+  0%   { transform: translateY(-30%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(130%); opacity: 0; }
+}
+.web3-scan {
+  position: absolute; inset: 0;
+  pointer-events: none; overflow: hidden; border-radius: inherit;
+  z-index: 2;
+}
+.web3-scan::before {
+  content: '';
+  position: absolute; left: 0; right: 0;
+  height: 60px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(0,255,135,0.05) 40%,
+    rgba(0,255,135,0.1) 50%,
+    rgba(0,255,135,0.05) 60%,
+    transparent 100%);
+  animation: w3-scan 7s linear infinite;
+}
+
+/* Vertical data-flow divider — animated 1px beam along left edge */
+@keyframes w3-vbeam {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+.web3-divider {
+  position: relative;
+  border-left: 1px solid rgba(0,255,135,0.12);
+}
+.web3-divider::before {
+  content: '';
+  position: absolute; top: 0; left: -1px;
+  width: 1px; height: 25%;
+  background: linear-gradient(180deg, transparent, #00ff87 50%, transparent);
+  box-shadow: 0 0 6px #00ff87aa, 0 0 12px #00ff8755;
+  animation: w3-vbeam 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Glitch / RGB-split text — continuous cyberpunk flicker ──── */
+@keyframes cp-rgb {
+  0%   { text-shadow:  2px 0   #ff00c8, -2px 0   #00ffff, 0 0 14px #00ff8770; }
+  20%  { text-shadow: -2px 1px #ff00c8,  2px -1px #00ffff, 0 0 14px #00ff8770; }
+  40%  { text-shadow:  3px 0   #ff00c8, -3px 0   #00ffff, 0 0 14px #00ff8770; }
+  60%  { text-shadow:  1px -1px #ff00c8, -1px 1px #00ffff, 0 0 14px #00ff8770; }
+  80%  { text-shadow: -2px 0   #ff00c8,  2px 0   #00ffff, 0 0 14px #00ff8770; }
+  100% { text-shadow:  2px 0   #ff00c8, -2px 0   #00ffff, 0 0 14px #00ff8770; }
+}
+@keyframes cp-skew {
+  0%, 100% { transform: skew(0deg); }
+  25%      { transform: skew(0.6deg); }
+  50%      { transform: skew(-0.4deg); }
+  75%      { transform: skew(0.3deg); }
+}
+.glitch-text {
+  display: inline-block;
+  animation:
+    cp-rgb  0.8s steps(5, end) infinite,
+    cp-skew 1.4s steps(4, end) infinite;
+}
+
+/* ── Cyberpunk button — cut corners + hover shimmer + neon glow ─ */
+.cp-btn {
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(
+    6px 0,
+    100% 0,
+    100% calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    0 100%,
+    0 6px
+  );
+  transition: box-shadow 0.2s ease, transform 0.1s ease, text-shadow 0.2s ease;
+}
+.cp-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -120%;
+  width: 100%; height: 100%;
+  background: linear-gradient(100deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(0, 255, 255, 0.35) 48%,
+    rgba(255, 0, 200, 0.35) 52%,
+    transparent 65%,
+    transparent 100%
+  );
+  transition: left 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+.cp-btn:hover:not(:disabled)::before { left: 120%; }
+.cp-btn:hover:not(:disabled) {
+  box-shadow:
+    0 0 14px rgba(0,255,135,0.45),
+    0 0 28px rgba(0,255,135,0.18),
+    inset 0 0 10px rgba(0,255,135,0.12);
+  text-shadow: 0 0 6px currentColor, 0 0 10px currentColor;
+}
+.cp-btn:active:not(:disabled) { transform: translateY(1px); }
+.cp-btn > * { position: relative; z-index: 1; }
+
+/* Magenta variant — for danger / accent buttons */
+.cp-btn-magenta:hover:not(:disabled) {
+  box-shadow:
+    0 0 14px rgba(255,0,200,0.45),
+    0 0 28px rgba(255,0,200,0.18),
+    inset 0 0 10px rgba(255,0,200,0.12);
+}
+
+/* ── Hover-state flicker — RGB-split + brightness, continuous ─── */
+@keyframes cp-text-flicker {
+  0%, 100% {
+    text-shadow: 0 0 4px currentColor,  1.5px 0   #ff00c8, -1.5px 0   #00ffff;
+  }
+  25% {
+    text-shadow: 0 0 8px currentColor, -2px   0   #ff00c8,  2px   0   #00ffff;
+  }
+  50% {
+    text-shadow: 0 0 6px currentColor,  2px   1px #ff00c8, -2px  -1px #00ffff;
+  }
+  75% {
+    text-shadow: 0 0 10px currentColor,-1px   1px #ff00c8,  1px  -1px #00ffff;
+  }
+}
+
+/* Table rows — bold descendants flicker on row hover */
+.web3-row:hover .font-bold,
+.web3-row:hover .font-black,
+.web3-row:hover .font-semibold {
+  animation: cp-text-flicker 1.5s steps(4, end) infinite;
+}
+
+/* Sortable header cells — flicker individually */
+.web3-thead th:hover {
+  animation: cp-text-flicker 1.5s steps(4, end) infinite;
+}
+
+/* Buttons — flicker text while shimmer beam sweeps across */
+.cp-btn:hover:not(:disabled) {
+  animation: cp-text-flicker 1.5s steps(4, end) infinite;
+}
+
+/* Opt-in: any text element flickers when hovered directly */
+.cp-hover-text {
+  cursor: default;
+  transition: color 0.15s ease;
+}
+.cp-hover-text:hover {
+  animation: cp-text-flicker 1.5s steps(4, end) infinite;
+}
+
+/* Web3 cards (right-side panels) — intensify border + flicker title */
+.cp-hover-card {
+  transition: box-shadow 0.3s ease;
+}
+.cp-hover-card:hover {
+  box-shadow:
+    0 0 36px rgba(0,255,135,0.35),
+    0 0 64px rgba(255,0,200,0.18),
+    inset 0 0 24px rgba(0,255,135,0.05);
+}
+.cp-hover-card:hover::before {
+  filter: brightness(1.6) saturate(1.5) drop-shadow(0 0 4px rgba(0,255,255,0.6));
+}
+.cp-hover-card:hover .text-sm.font-bold,
+.cp-hover-card:hover .text-base.font-bold {
+  animation: cp-text-flicker 1.5s steps(4, end) infinite;
+}
+
+/* ── Cyberpunk segmented gauge (Greed Index) — V2 ─────────────── */
+.cp-gauge {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Aurora glow behind the gauge — breathes between green and magenta */
+@keyframes cp-gauge-aurora {
+  0%, 100% {
+    background: radial-gradient(ellipse 70% 110% at 30% 50%, rgba(0,255,135,0.18), transparent 60%),
+                radial-gradient(ellipse 60% 110% at 80% 50%, rgba(255,0,200,0.12), transparent 60%);
+  }
+  50% {
+    background: radial-gradient(ellipse 70% 110% at 30% 50%, rgba(255,0,200,0.18), transparent 60%),
+                radial-gradient(ellipse 60% 110% at 80% 50%, rgba(0,212,255,0.16), transparent 60%);
+  }
+}
+.cp-gauge::before {
+  content: '';
+  position: absolute;
+  inset: -8px -16px;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(14px);
+  animation: cp-gauge-aurora 6s ease-in-out infinite;
+}
+
+/* Big chunky score number with continuous chromatic aberration */
+@keyframes cp-gauge-score-rgb {
+  0%, 100% { text-shadow:  3px 0 #ff00c8, -3px 0 #00ffff, 0 0 18px currentColor; }
+  20%      { text-shadow: -3px 1px #ff00c8, 3px -1px #00ffff, 0 0 22px currentColor; }
+  40%      { text-shadow:  4px 0 #ff00c8, -4px 0 #00ffff, 0 0 18px currentColor; }
+  60%      { text-shadow:  2px -1px #ff00c8, -2px 1px #00ffff, 0 0 26px currentColor; }
+  80%      { text-shadow: -3px 0 #ff00c8, 3px 0 #00ffff, 0 0 20px currentColor; }
+}
+.cp-gauge-score {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  animation: cp-gauge-score-rgb 1.2s steps(5, end) infinite;
+}
+
+/* Bar shell (taller, parallelogram-skewed via clip-path) */
+.cp-gauge-bar {
+  position: relative;
+  display: flex;
+  gap: 3px;
+  height: 18px;
+}
+.cp-gauge-seg {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  position: relative;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+@keyframes cp-gauge-seg-pulse {
+  0%, 100% { filter: brightness(0.9) saturate(1); }
+  50%      { filter: brightness(1.5) saturate(1.6); }
+}
+.cp-gauge-seg.active {
+  animation: cp-gauge-seg-pulse 2s ease-in-out infinite;
+}
+.cp-gauge-seg.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.5) 0%,
+    rgba(255,255,255,0)   35%,
+    rgba(0,0,0,0.35)      100%);
+  pointer-events: none;
+}
+
+/* Scan beam — wider, faster, dual-color */
+@keyframes cp-gauge-scan {
+  0%   { transform: translateX(-200%); }
+  100% { transform: translateX(2000%); }
+}
+.cp-gauge-scan {
+  position: absolute; top: -2px; bottom: -2px; left: 0;
+  width: 8%;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(0,255,255,0.8) 40%,
+    rgba(255,0,200,0.8) 60%,
+    transparent);
+  filter: blur(2px);
+  animation: cp-gauge-scan 2.8s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Tick marks under the bar */
+.cp-gauge-ticks {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(100% + 4px);
+  height: 22px;
+  pointer-events: none;
+}
+.cp-gauge-tick {
+  position: absolute;
+  top: 0;
+  width: 1px; height: 7px;
+  background: linear-gradient(180deg, rgba(0,255,135,0.85), transparent);
+  box-shadow: 0 0 4px rgba(0,255,135,0.55);
+}
+.cp-gauge-tick-label {
+  position: absolute;
+  top: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  color: rgba(230,255,240,0.95);
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 5px rgba(0,255,135,0.55);
+  transform: translateX(-50%);
+}
+
+/* Lightning marker — bright vertical line + double horizontal wings + halo */
+.cp-gauge-marker {
+  position: absolute;
+  top: -8px; bottom: -8px;
+  width: 2px;
+  background: currentColor;
+  pointer-events: none;
+  z-index: 3;
+  transition: left 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 0 8px currentColor, 0 0 16px currentColor;
+}
+@keyframes cp-gauge-marker-flash {
+  0%, 100% { box-shadow: 0 0 8px  currentColor, 0 0 16px currentColor; }
+  50%      { box-shadow: 0 0 14px currentColor, 0 0 28px currentColor, 0 0 42px currentColor; }
+}
+.cp-gauge-marker {
+  animation: cp-gauge-marker-flash 1.1s ease-in-out infinite;
+}
+.cp-gauge-marker::before,
+.cp-gauge-marker::after {
+  content: '';
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  width: 12px; height: 2px;
+  background: currentColor;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.cp-gauge-marker::before { top: -2px; }
+.cp-gauge-marker::after  { bottom: -2px; }
+
+/* Status label brackets — flicker the chevrons */
+@keyframes cp-bracket-flicker {
+  0%, 60%, 100% { opacity: 1; transform: translateX(0); }
+  65%           { opacity: 0.4; transform: translateX(-1px); }
+  70%           { opacity: 1; transform: translateX(0); }
+  85%           { opacity: 0.6; transform: translateX(1px); }
+  90%           { opacity: 1; transform: translateX(0); }
+}
+.cp-gauge-bracket {
+  display: inline-block;
+  animation: cp-bracket-flicker 2.4s steps(1, end) infinite;
+}
+.cp-gauge-bracket-r { animation-delay: 1.2s; }
+
+/* Treemap cells — neon lift on hover */
+.cp-tile {
+  transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease, z-index 0s;
+  cursor: pointer;
+}
+.cp-tile:hover {
+  transform: scale(1.04);
+  z-index: 5;
+  filter: brightness(1.4) saturate(1.45);
+  box-shadow:
+    0 0 14px rgba(0, 255, 255, 0.55),
+    0 0 26px rgba(255, 0, 200, 0.35),
+    inset 0 0 14px rgba(0, 255, 255, 0.18);
+  outline: 1px solid rgba(0, 255, 255, 0.6);
+  outline-offset: -1px;
+}
+.cp-tile:hover > span {
+  animation: cp-text-flicker 1.5s steps(4, end) infinite;
+}
+
+/* ── Cyberpunk MarketBar (top ticker) ────────────────────────────── */
+.cp-market {
+  position: relative;
+}
+.cp-market::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0,
+      transparent 28px,
+      rgba(0, 255, 135, 0.04) 28px,
+      rgba(0, 255, 135, 0.04) 29px),
+    linear-gradient(180deg,
+      rgba(0, 255, 135, 0.05) 0%,
+      transparent 35%,
+      transparent 65%,
+      rgba(255, 0, 200, 0.05) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+.cp-market > * { position: relative; z-index: 1; }
+
+.cp-market-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  position: relative;
+}
+.cp-market-item::before {
+  content: "[";
+  color: rgba(0, 255, 135, 0.55);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  margin-right: 3px;
+  text-shadow: 0 0 4px rgba(0, 255, 135, 0.5);
+}
+.cp-market-item::after {
+  content: "]";
+  color: rgba(0, 255, 135, 0.55);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  margin-left: 3px;
+  text-shadow: 0 0 4px rgba(0, 255, 135, 0.5);
+}
+
+.cp-market-label {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  color: rgba(220, 245, 230, 0.9);
+  text-transform: uppercase;
+  text-shadow: 0 0 4px rgba(0, 255, 135, 0.35);
+}
+
+.cp-market-coin {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-shadow:
+    0 0 3px currentColor,
+    0 0 8px currentColor;
+}
+
+.cp-market-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+  text-shadow:
+    0 0 3px rgba(0, 255, 135, 0.7),
+    0 0 7px rgba(0, 255, 135, 0.3);
+}
+
+.cp-market-chg {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.cp-market-up {
+  color: #7effc2;
+  text-shadow:
+    0 0 3px rgba(0, 255, 135, 0.8),
+    0 0 7px rgba(0, 255, 135, 0.4);
+  background: linear-gradient(90deg, rgba(0, 255, 135, 0.1), transparent);
+}
+.cp-market-down {
+  color: #ff7d97;
+  text-shadow:
+    0 0 3px rgba(255, 0, 90, 0.8),
+    0 0 7px rgba(255, 0, 90, 0.4);
+  background: linear-gradient(90deg, rgba(255, 0, 90, 0.1), transparent);
+}
+
+.cp-market-item:hover .cp-market-value {
+  animation: cp-text-flicker 1.4s steps(4, end) infinite;
+  color: #aaffd0;
+}
+.cp-market-item:hover .cp-market-label {
+  color: rgba(180, 255, 220, 0.95);
+}
+
+/* ── Cyberpunk Modal ───────────────────────────────────────────── */
+.cp-modal-backdrop {
+  background:
+    radial-gradient(ellipse at center, rgba(0, 30, 18, 0.55), rgba(0, 0, 0, 0.78) 70%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.cp-modal-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(0, 255, 135, 0.04) 3px, rgba(0, 255, 135, 0.04) 4px);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.cp-modal-bg {
+  background:
+    radial-gradient(ellipse at top, rgba(0, 255, 135, 0.07), transparent 55%),
+    radial-gradient(ellipse at bottom right, rgba(255, 0, 200, 0.06), transparent 55%),
+    rgba(5, 9, 7, 0.97);
+  position: relative;
+}
+.cp-modal-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(0, 255, 135, 0.022) 2px, rgba(0, 255, 135, 0.022) 3px);
+  pointer-events: none;
+  z-index: 0;
+}
+.cp-modal-bg > * { position: relative; z-index: 1; }
+
+/* Header */
+.cp-modal-title {
+  font-family: ui-monospace, monospace;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #d4ffe8;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 6px rgba(0, 255, 135, 0.7),
+    0 0 14px rgba(0, 255, 135, 0.35);
+}
+.cp-modal-title::before { content: "› "; color: rgba(0, 255, 135, 0.9); }
+.cp-modal-subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.1em;
+  color: rgba(200, 235, 215, 0.75);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.cp-modal-close {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 0, 90, 0.4);
+  color: rgba(255, 110, 140, 0.85);
+  font-size: 22px;
+  font-weight: 700;
+  background: rgba(40, 0, 14, 0.35);
+  font-family: ui-monospace, monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+.cp-modal-close:hover {
+  border-color: rgba(255, 0, 90, 0.9);
+  color: #ff8aa3;
+  background: rgba(60, 0, 20, 0.55);
+  box-shadow: 0 0 10px rgba(255, 0, 90, 0.45);
+}
+.cp-modal-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 135, 0.45) 15%, rgba(0, 255, 135, 0.45) 85%, transparent);
+  box-shadow: 0 0 6px rgba(0, 255, 135, 0.35);
+  position: relative;
+}
+.cp-modal-divider::after {
+  content: "";
+  position: absolute;
+  inset: -1px 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 0, 200, 0.25) 50%, transparent);
+  height: 1px;
+  animation: w3-sweep 4s linear infinite;
+}
+
+/* Section label */
+.cp-modal-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(0, 255, 135, 0.88);
+  text-shadow: 0 0 4px rgba(0, 255, 135, 0.4);
+  margin-bottom: 8px;
+}
+.cp-modal-label::before {
+  content: "▸";
+  font-size: 13px;
+  color: rgba(0, 255, 135, 1);
+}
+
+/* Cyberpunk input */
+.cp-input {
+  width: 100%;
+  background: rgba(0, 22, 14, 0.55);
+  border: 1px solid rgba(0, 255, 135, 0.28);
+  border-radius: 0;
+  padding: 9px 12px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  color: #e8ffef;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.cp-input:focus {
+  outline: none;
+  border-color: rgba(0, 255, 135, 0.85);
+  box-shadow:
+    0 0 12px rgba(0, 255, 135, 0.3),
+    inset 0 0 8px rgba(0, 255, 135, 0.1);
+  color: #f0fff7;
+}
+.cp-input::placeholder { color: rgba(160, 210, 185, 0.32); }
+/* Strip the browser-default number spinners — they break the cyberpunk look */
+.cp-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.cp-input[type="number"]::-webkit-outer-spin-button,
+.cp-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+/* Preset chip */
+.cp-chip {
+  font-size: 14px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 5px 14px;
+  border: 1px solid rgba(120, 150, 135, 0.32);
+  background: rgba(0, 22, 14, 0.4);
+  color: rgba(200, 230, 215, 0.85);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.cp-chip:hover {
+  border-color: rgba(0, 255, 135, 0.55);
+  color: #c8ffe0;
+  background: rgba(0, 30, 18, 0.55);
+}
+.cp-chip.cp-chip-active {
+  border-color: rgba(0, 255, 135, 0.9);
+  background: rgba(0, 255, 135, 0.14);
+  color: #6dffba;
+  text-shadow: 0 0 5px rgba(0, 255, 135, 0.8);
+  box-shadow:
+    0 0 10px rgba(0, 255, 135, 0.35),
+    inset 0 0 5px rgba(0, 255, 135, 0.18);
+}
+
+/* Cyberpunk toggle */
+.cp-toggle {
+  position: relative;
+  width: 52px;
+  height: 26px;
+  border: 1px solid rgba(120, 150, 135, 0.45);
+  background: rgba(0, 22, 14, 0.55);
+  cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: all 0.2s ease;
+}
+.cp-toggle.cp-toggle-on {
+  border-color: rgba(0, 255, 135, 0.85);
+  background: rgba(0, 255, 135, 0.16);
+  box-shadow:
+    0 0 12px rgba(0, 255, 135, 0.45),
+    inset 0 0 6px rgba(0, 255, 135, 0.2);
+}
+.cp-toggle-knob {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  background: linear-gradient(180deg, #6b8076, #4a6157);
+  transition: all 0.2s ease;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+}
+.cp-toggle.cp-toggle-on .cp-toggle-knob {
+  left: 28px;
+  background: linear-gradient(180deg, #d8ffe8, #5dffb0);
+  box-shadow: 0 0 8px rgba(0, 255, 135, 0.85);
+}
+
+/* ── Cyberpunk row-expanded panel ──────────────────────────────── */
+.cp-expanded {
+  position: relative;
+  background:
+    radial-gradient(ellipse at top left, rgba(0, 255, 135, 0.05), transparent 55%),
+    radial-gradient(ellipse at bottom right, rgba(255, 0, 200, 0.045), transparent 55%),
+    rgba(8, 13, 11, 0.85);
+  border-top: 1px solid rgba(0, 255, 135, 0.18);
+  box-shadow: inset 0 1px 0 rgba(0, 255, 135, 0.08);
+  overflow: hidden;
+}
+.cp-expanded::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(0, 255, 135, 0.025) 2px, rgba(0, 255, 135, 0.025) 3px);
+  pointer-events: none;
+  z-index: 0;
+}
+.cp-expanded > * { position: relative; z-index: 1; }
+
+/* Section header in expanded panel */
+.cp-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(0, 255, 135, 0.85);
+  text-shadow: 0 0 5px rgba(0, 255, 135, 0.5);
+  margin-bottom: 10px;
+}
+.cp-section-label::before {
+  content: "▸";
+  font-size: 11px;
+  color: rgba(0, 255, 135, 1);
+}
+.cp-section-label .cp-section-count {
+  color: rgba(255, 0, 200, 0.8);
+  text-shadow: 0 0 4px rgba(255, 0, 200, 0.45);
+  margin-left: 4px;
+  letter-spacing: 0.06em;
+}
+
+/* Cyberpunk token chip */
+.cp-token-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  background: rgba(0, 22, 14, 0.6);
+  border: 1px solid rgba(0, 255, 135, 0.22);
+  font-family: ui-monospace, monospace;
+  transition: all 0.15s ease;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+.cp-token-chip:hover {
+  border-color: rgba(0, 255, 135, 0.7);
+  background: rgba(0, 35, 22, 0.7);
+  box-shadow:
+    0 0 10px rgba(0, 255, 135, 0.3),
+    inset 0 0 6px rgba(0, 255, 135, 0.08);
+  transform: translateY(-1px);
+}
+.cp-token-chip:hover > * {
+  animation: cp-text-flicker 1.5s steps(4, end) infinite;
+}
+
+/* Cyberpunk stat panel (今日表现 / 历史战绩) */
+.cp-stat-panel {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(0, 30, 18, 0.5), rgba(15, 0, 22, 0.4));
+  border: 1px solid rgba(0, 255, 135, 0.25);
+  padding: 12px 14px;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition: all 0.2s ease;
+}
+.cp-stat-panel:hover {
+  border-color: rgba(0, 255, 135, 0.55);
+  box-shadow:
+    0 0 14px rgba(0, 255, 135, 0.2),
+    inset 0 0 8px rgba(0, 255, 135, 0.06);
+}
+.cp-stat-panel::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0;
+  width: 14px; height: 14px;
+  background:
+    linear-gradient(135deg, transparent 50%, rgba(0, 255, 135, 0.6) 50%);
+  pointer-events: none;
+}
+
+.cp-stat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(0, 255, 135, 0.08);
+}
+.cp-stat-row:last-child { border-bottom: 0; }
+.cp-stat-key {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(180, 220, 200, 0.7);
+}
+.cp-stat-val {
+  font-size: 15px;
+  font-weight: 800;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 4px currentColor;
+}
+
+/* ── Cyberpunk search input ────────────────────────────────────── */
+.cp-search-wrap {
+  position: relative;
+  display: inline-block;
+}
+.cp-search-wrap::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 14px; height: 14px;
+  transform: translateY(-50%);
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat center / contain;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat center / contain;
+  color: rgba(0, 255, 135, 0.7);
+  filter: drop-shadow(0 0 4px rgba(0, 255, 135, 0.5));
+  pointer-events: none;
+  z-index: 1;
+}
+.cp-search-input {
+  background: rgba(0, 22, 14, 0.55);
+  border: 1px solid rgba(0, 255, 135, 0.3);
+  padding: 7px 14px 7px 32px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  color: #e8ffef;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.cp-search-input:focus {
+  outline: none;
+  border-color: rgba(0, 255, 135, 0.85);
+  background: rgba(0, 35, 22, 0.7);
+  box-shadow:
+    0 0 14px rgba(0, 255, 135, 0.35),
+    inset 0 0 8px rgba(0, 255, 135, 0.1);
+}
+.cp-search-input::placeholder {
+  color: rgba(160, 210, 185, 0.45);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+/* ── Cyberpunk sidebar nav ─────────────────────────────────────── */
+.cp-side-nav {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(0, 30, 18, 0.5), rgba(8, 13, 11, 0.95) 40%);
+  border-right: 1px solid rgba(0, 255, 135, 0.2);
+}
+.cp-side-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(0, 255, 135, 0.02) 3px, rgba(0, 255, 135, 0.02) 4px);
+  pointer-events: none;
+  z-index: 0;
+}
+.cp-side-nav::after {
+  content: "";
+  position: absolute;
+  top: 0; right: -1px; bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, rgba(0, 255, 135, 0.55) 50%, transparent);
+  filter: blur(1px);
+  pointer-events: none;
+  animation: cp-side-beam 6s ease-in-out infinite;
+}
+@keyframes cp-side-beam {
+  0%, 100% { opacity: 0.3; transform: translateY(-30%); }
+  50%      { opacity: 0.85; transform: translateY(30%); }
+}
+
+.cp-side-btn {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 6px;
+  color: rgba(160, 200, 180, 0.6);
+  font-family: ui-monospace, monospace;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  z-index: 1;
+}
+.cp-side-btn::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 8px; bottom: 8px;
+  width: 3px;
+  background: rgba(0, 255, 135, 0);
+  transition: all 0.18s ease;
+}
+.cp-side-btn:hover {
+  color: #c8ffe0;
+  background: linear-gradient(90deg, rgba(0, 255, 135, 0.1), transparent 70%);
+}
+.cp-side-btn:hover::before {
+  background: rgba(0, 255, 135, 0.55);
+  box-shadow: 0 0 8px rgba(0, 255, 135, 0.6);
+}
+.cp-side-btn.cp-side-btn-active {
+  color: #5dffb0;
+  background: linear-gradient(90deg, rgba(0, 255, 135, 0.18), rgba(0, 255, 135, 0.04) 60%, transparent);
+  text-shadow: 0 0 6px rgba(0, 255, 135, 0.6);
+}
+.cp-side-btn.cp-side-btn-active::before {
+  background: linear-gradient(180deg, transparent, rgba(0, 255, 135, 1) 30%, rgba(0, 255, 135, 1) 70%, transparent);
+  box-shadow: 0 0 10px rgba(0, 255, 135, 0.85);
+  width: 3px;
+}
+.cp-side-btn.cp-side-btn-active::after {
+  content: "";
+  position: absolute;
+  inset: 6px 4px;
+  border: 1px solid rgba(0, 255, 135, 0.35);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  pointer-events: none;
+}
+.cp-side-btn svg {
+  filter: drop-shadow(0 0 0px currentColor);
+  transition: filter 0.18s ease;
+}
+.cp-side-btn:hover svg,
+.cp-side-btn.cp-side-btn-active svg {
+  filter: drop-shadow(0 0 6px currentColor);
+}
+.cp-side-btn .cp-side-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ── Cyberpunk meme treemap tiles (dark base + cyan/magenta cyber overlays) ── */
+.cp-meme-tile {
+  --cp-meme-c: #34d399;
+  --cp-meme-i: 0.3;
+  background:
+    /* tier-color diagonal tint */
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--cp-meme-c) calc(var(--cp-meme-i) * 55%), rgba(8, 12, 11, 0.92)) 0%,
+      color-mix(in srgb, var(--cp-meme-c) calc(var(--cp-meme-i) * 18%), rgba(8, 12, 11, 0.96)) 100%),
+    /* faint cyan + magenta holographic blobs (always-on) */
+    radial-gradient(ellipse at 78% 18%, rgba(0, 212, 255, 0.07), transparent 55%),
+    radial-gradient(ellipse at 22% 82%, rgba(255, 0, 200, 0.06), transparent 55%);
+  border: 1px solid color-mix(in srgb, var(--cp-meme-c) calc(35% + var(--cp-meme-i) * 50%), transparent);
+  box-shadow:
+    inset 0 0 18px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    /* inner tier glow */
+    inset 0 0 calc(8px + var(--cp-meme-i) * 12px) color-mix(in srgb, var(--cp-meme-c) calc(var(--cp-meme-i) * 30%), transparent),
+    /* outer tier halo */
+    0 0 calc(8px + var(--cp-meme-i) * 16px) color-mix(in srgb, var(--cp-meme-c) calc(20% + var(--cp-meme-i) * 35%), transparent),
+    /* secondary cyan ambient halo */
+    0 0 18px rgba(0, 212, 255, 0.08);
+  animation: cp-meme-breathe 4.2s ease-in-out infinite;
+  transition: filter 0.18s ease, transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+@keyframes cp-meme-breathe {
+  0%, 100% { filter: brightness(1) saturate(1); }
+  50%      { filter: brightness(1.12) saturate(1.15); }
+}
+
+/* Canvas-wide HUD grid (single layer over the entire treemap) */
+.cp-meme-canvas {
+  isolation: isolate;
+}
+.cp-meme-canvas-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  background-image:
+    repeating-linear-gradient(0deg,  transparent 0, transparent 6px, rgba(0, 212, 255, 0.05) 6px, rgba(0, 212, 255, 0.05) 7px),
+    repeating-linear-gradient(90deg, transparent 0, transparent 10px, rgba(255, 0, 200, 0.03) 10px, rgba(255, 0, 200, 0.03) 11px);
+  mix-blend-mode: screen;
+}
+
+/* Canvas — animated rotating conic-gradient border (the whole panel is "alive") */
+.cp-meme-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--w3-angle, 0deg),
+    transparent 0%,
+    rgba(0, 212, 255, 0.95) 6%,
+    rgba(0, 255, 135, 0.95) 13%,
+    rgba(255, 0, 200, 0.95) 20%,
+    transparent 32%,
+    transparent 55%,
+    rgba(255, 0, 200, 0.95) 67%,
+    rgba(0, 255, 135, 0.95) 75%,
+    rgba(0, 212, 255, 0.95) 83%,
+    transparent 92%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: w3-rotate 4s linear infinite;
+  pointer-events: none;
+  z-index: 8;
+}
+@supports not (background: paint(something)) {
+  .cp-meme-canvas::before {
+    background: linear-gradient(90deg,
+      rgba(0, 212, 255, 0.6),
+      rgba(255, 0, 200, 0.6),
+      rgba(0, 255, 135, 0.6),
+      rgba(0, 212, 255, 0.6));
+    background-size: 300% 100%;
+    animation: w3-bg-shift 4s linear infinite;
+  }
+}
+
+/* Canvas — periodic vertical glitch RGB-shift bursts every ~7s */
+.cp-meme-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9;
+  mix-blend-mode: screen;
+  background:
+    linear-gradient(180deg,
+      transparent calc(28% - 1px), rgba(0, 212, 255, 0.7) 28%, transparent calc(28% + 1px),
+      transparent calc(56% - 1px), rgba(255, 0, 200, 0.7) 56%, transparent calc(56% + 1px),
+      transparent calc(78% - 1px), rgba(0, 255, 135, 0.6) 78%, transparent calc(78% + 1px));
+  opacity: 0;
+  animation: cp-meme-glitch-burst 7s steps(1, end) infinite;
+}
+@keyframes cp-meme-glitch-burst {
+  0%, 89%, 100% { opacity: 0; transform: translateX(0); }
+  90%           { opacity: 0.85; transform: translateX(-3px); }
+  91%           { opacity: 0.6;  transform: translateX(4px); }
+  92%           { opacity: 0.9;  transform: translateX(-2px); }
+  93%           { opacity: 0.4;  transform: translateX(0); }
+}
+
+/* (radial pulse rings removed) */
+
+/* Drifting cyan/magenta scanlines across the entire treemap */
+.cp-meme-glitch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    linear-gradient(0deg,
+      transparent 18%, rgba(0, 212, 255, 0.18) 18.5%, transparent 19%,
+      transparent 41%, rgba(255, 0, 200, 0.16) 41.5%, transparent 42%,
+      transparent 67%, rgba(0, 212, 255, 0.14) 67.5%, transparent 68%,
+      transparent 88%, rgba(255, 0, 200, 0.16) 88.5%, transparent 89%);
+  mix-blend-mode: screen;
+  animation: cp-meme-scanline-drift 9s linear infinite;
+  opacity: 0.7;
+}
+@keyframes cp-meme-scanline-drift {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(8px); }
+}
+
+/* ── Cyberpunk rising-energy bar chart ─────────────────────────── */
+.cp-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 4px 4px 0;
+}
+.cp-bar-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100%;
+  font-family: ui-monospace, monospace;
+}
+.cp-bar-count {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(220, 245, 230, 0.85);
+  text-shadow: 0 0 4px rgba(0, 255, 135, 0.4);
+  height: 14px;
+  line-height: 14px;
+}
+.cp-bar-track {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  position: relative;
+}
+.cp-bar-track::before {
+  /* baseline glow */
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 135, 0.4), transparent);
+  pointer-events: none;
+}
+.cp-bar-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(180, 220, 200, 0.65);
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+  height: 16px;
+  line-height: 16px;
+}
+
+.cp-bar {
+  --cp-bar-c: #00ff87;
+  --cp-bar-glow: #7effc2;
+  position: relative;
+  width: 100%;
+  background:
+    /* flowing bands of light — animated via background-position */
+    linear-gradient(180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--cp-bar-glow) 22%, transparent) 18%,
+      transparent 32%,
+      color-mix(in srgb, var(--cp-bar-glow) 14%, transparent) 55%,
+      transparent 68%,
+      color-mix(in srgb, var(--cp-bar-glow) 28%, transparent) 86%,
+      transparent 100%
+    ),
+    /* solid base gradient (darker bottom, brighter top) */
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--cp-bar-c) 18%, rgba(8, 12, 11, 0.92)) 0%,
+      color-mix(in srgb, var(--cp-bar-c) 55%, rgba(8, 12, 11, 0.85)) 100%);
+  background-size: 100% 240%, 100% 100%;
+  background-position: 0 100%, 0 0;
+  border: 1px solid color-mix(in srgb, var(--cp-bar-c) 60%, transparent);
+  border-bottom: 0;
+  box-shadow:
+    inset 0 -10px 18px color-mix(in srgb, var(--cp-bar-c) 22%, transparent),
+    inset 0 0 8px rgba(0, 0, 0, 0.4),
+    0 0 10px color-mix(in srgb, var(--cp-bar-c) 30%, transparent),
+    0 -2px 14px color-mix(in srgb, var(--cp-bar-c) 22%, transparent);
+  clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%, 0 4px);
+  overflow: hidden;
+  animation:
+    cp-bar-grow 1.4s cubic-bezier(0.22, 1, 0.36, 1) backwards,
+    cp-bar-flow 3.2s linear infinite;
+  transition: filter 0.18s ease;
+}
+@keyframes cp-bar-grow {
+  0%   { transform: scaleY(0); transform-origin: bottom; }
+  100% { transform: scaleY(1); transform-origin: bottom; }
+}
+/* Bands move upward smoothly forever — natural data-flow feel */
+@keyframes cp-bar-flow {
+  0%   { background-position: 0 240%, 0 0; }
+  100% { background-position: 0 0%,   0 0; }
+}
+
+.cp-bar-up   { --cp-bar-c: #00ff87; --cp-bar-glow: #7effc2; }
+.cp-bar-down { --cp-bar-c: #ff3b6b; --cp-bar-glow: #ff7d97; }
+.cp-bar-empty {
+  --cp-bar-c: rgba(120, 150, 135, 0.4);
+  --cp-bar-glow: rgba(120, 150, 135, 0.4);
+  min-height: 2px;
+  height: 2px !important;
+  opacity: 0.5;
+  animation: none;
+}
+
+/* Soft single rising glow inside bar — no hard stripe edges */
+.cp-bar-stream {
+  position: absolute;
+  left: -10%; right: -10%;
+  bottom: 0;
+  height: 50%;
+  background: radial-gradient(ellipse at center bottom,
+    color-mix(in srgb, var(--cp-bar-glow) 55%, transparent) 0%,
+    transparent 75%);
+  filter: blur(2px);
+  pointer-events: none;
+  animation: cp-bar-rise 3.2s ease-out infinite;
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+@keyframes cp-bar-rise {
+  0%   { transform: translateY(20%); opacity: 0; }
+  25%  { opacity: 0.85; }
+  100% { transform: translateY(-160%); opacity: 0; }
+}
+
+/* Steady glowing top cap — gentle brightness breath only */
+.cp-bar-cap {
+  position: absolute;
+  left: -1px; right: -1px;
+  top: 0;
+  height: 2px;
+  background: var(--cp-bar-glow);
+  box-shadow:
+    0 0 5px var(--cp-bar-c),
+    0 0 12px color-mix(in srgb, var(--cp-bar-c) 60%, transparent),
+    0 1px 4px var(--cp-bar-glow);
+  animation: cp-bar-cap-breathe 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes cp-bar-cap-breathe {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
+}
+
+.cp-bar-sparks { display: none; }
+
+.cp-bar:hover {
+  filter: brightness(1.2) saturate(1.15);
+}
+.cp-bar-empty .cp-bar-stream,
+.cp-bar-empty .cp-bar-cap { display: none; }
+
+/* L-bracket corner markers — bright neon, with halo */
+.cp-meme-tile::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background:
+    linear-gradient(to right,  var(--cp-meme-c) 0 8px, transparent 8px) top    left  / 8px 1.5px no-repeat,
+    linear-gradient(to bottom, var(--cp-meme-c) 0 8px, transparent 8px) top    left  / 1.5px 8px no-repeat,
+    linear-gradient(to left,   var(--cp-meme-c) 0 8px, transparent 8px) top    right / 8px 1.5px no-repeat,
+    linear-gradient(to bottom, var(--cp-meme-c) 0 8px, transparent 8px) top    right / 1.5px 8px no-repeat,
+    linear-gradient(to right,  var(--cp-meme-c) 0 8px, transparent 8px) bottom left  / 8px 1.5px no-repeat,
+    linear-gradient(to top,    var(--cp-meme-c) 0 8px, transparent 8px) bottom left  / 1.5px 8px no-repeat,
+    linear-gradient(to left,   var(--cp-meme-c) 0 8px, transparent 8px) bottom right / 8px 1.5px no-repeat,
+    linear-gradient(to top,    var(--cp-meme-c) 0 8px, transparent 8px) bottom right / 1.5px 8px no-repeat;
+  filter: drop-shadow(0 0 3px var(--cp-meme-c)) drop-shadow(0 0 6px color-mix(in srgb, var(--cp-meme-c) 50%, transparent));
+  pointer-events: none;
+  opacity: 0.9;
+  z-index: 3;
+}
+.cp-meme-tile > .cp-meme-name,
+.cp-meme-tile > .cp-meme-pct { position: relative; z-index: 4; }
+
+.cp-meme-name {
+  color: #f5f8f6;
+  letter-spacing: 0.04em;
+  text-shadow:
+    -0.5px 0 rgba(0, 212, 255, 0.45),
+     0.5px 0 rgba(255, 0, 200, 0.35),
+     0 0 5px color-mix(in srgb, var(--cp-meme-c) 50%, transparent),
+     0 1px 3px rgba(0, 0, 0, 0.95);
+}
+.cp-meme-pct {
+  color: var(--cp-meme-c);
+  letter-spacing: 0.05em;
+  text-shadow:
+    0 0 5px color-mix(in srgb, var(--cp-meme-c) 60%, transparent),
+    0 0 10px color-mix(in srgb, var(--cp-meme-c) 30%, transparent),
+    0 1px 2px rgba(0, 0, 0, 0.85);
+  margin-top: 2px;
+}
+
+.cp-meme-tile.cp-meme-up   { --cp-meme-c: #34d399; }
+.cp-meme-tile.cp-meme-down { --cp-meme-c: #f87171; }
+
+.cp-meme-tile:hover {
+  transform: translateZ(0) scale(1.03);
+  border-color: var(--cp-meme-c);
+  box-shadow:
+    inset 0 0 18px rgba(0, 0, 0, 0.4),
+    inset 0 0 12px color-mix(in srgb, var(--cp-meme-c) 35%, transparent),
+    0 0 16px color-mix(in srgb, var(--cp-meme-c) 75%, transparent),
+    0 0 32px color-mix(in srgb, var(--cp-meme-c) 30%, transparent),
+    0 0 28px rgba(0, 212, 255, 0.18),
+    0 0 28px rgba(255, 0, 200, 0.14);
+  z-index: 12;
+}
+.cp-meme-tile:hover::after { opacity: 1; }
+.cp-meme-tile:hover .cp-meme-name {
+  color: #ffffff;
+  animation: cp-rgb 0.8s steps(4) infinite;
+}
+.cp-meme-tile:hover .cp-meme-pct {
+  text-shadow:
+    0 0 6px var(--cp-meme-c),
+    0 0 14px color-mix(in srgb, var(--cp-meme-c) 60%, transparent),
+    0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* Settings page — cyberpunk layout                                    */
+/* ─────────────────────────────────────────────────────────────────── */
+
+.cp-cfg-page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 4px 64px;
+  position: relative;
+}
+
+/* Sticky top bar holding title + save button */
+.cp-cfg-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 4px 18px;
+  margin-bottom: 6px;
+  background:
+    linear-gradient(180deg, rgba(8, 13, 11, 0.96) 0%, rgba(8, 13, 11, 0.85) 70%, transparent 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.cp-cfg-topbar::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 6px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 135, 0.5) 25%, rgba(0, 255, 135, 0.5) 75%, transparent);
+  box-shadow: 0 0 6px rgba(0, 255, 135, 0.4);
+  pointer-events: none;
+}
+
+/* Categorized columns — each column is a vertical flow */
+.cp-cfg-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .cp-cfg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1400px) {
+  .cp-cfg-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+}
+
+.cp-cfg-col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+/* Per-column header strip */
+.cp-cfg-col-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: rgba(0, 255, 135, 0.95);
+  text-shadow: 0 0 6px rgba(0, 255, 135, 0.55);
+  padding-bottom: 6px;
+}
+.cp-cfg-col-head::before {
+  content: "▸";
+  color: rgba(0, 255, 135, 1);
+  font-size: 14px;
+  letter-spacing: 0;
+}
+.cp-cfg-col-head::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0, 255, 135, 0.45), transparent);
+  box-shadow: 0 0 4px rgba(0, 255, 135, 0.4);
+  margin-left: 4px;
+}
+
+.cp-cfg-card {
+  padding: 22px 24px !important;
+  position: relative;
+}
+
+/* In-card section divider — replaces nested sub-cards for a flatter feel */
+.cp-cfg-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 135, 0.18) 20%, rgba(0, 255, 135, 0.18) 80%, transparent);
+  margin: 22px 0;
+}
+
+/* Thematic hint text — replaces plain gray-400 mono */
+.cp-hint {
+  display: block;
+  font-size: 14px;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.55;
+  color: rgba(208, 240, 222, 0.78);
+  padding: 3px 0 3px 12px;
+  margin-top: 8px;
+  border-left: 2px solid rgba(0, 255, 135, 0.4);
+  position: relative;
+}
+.cp-hint::before {
+  content: "//";
+  margin-right: 6px;
+  color: rgba(0, 255, 135, 0.85);
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+/* Section sub-header within a card */
+.cp-cfg-subhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(0, 255, 135, 0.95);
+  text-shadow: 0 0 5px rgba(0, 255, 135, 0.5);
+  margin-bottom: 14px;
+}
+.cp-cfg-subhead::before {
+  content: "▸";
+  font-size: 12px;
+  color: rgba(0, 255, 135, 1);
+}
+
+/* Filter row label — same scale as cp-modal-label minus the leading ▸
+   (the checkbox already serves as visual indicator) */
+.cp-filter-label {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(212, 255, 232, 0.85);
+}
+
+/* Stack of toggle rows separated by green hairlines */
+.cp-cfg-divided-rows {
+  display: flex;
+  flex-direction: column;
+}
+.cp-cfg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 0;
+  border-top: 1px dashed rgba(0, 255, 135, 0.12);
+}
+.cp-cfg-row:first-child { border-top: 0; padding-top: 0; }
+.cp-cfg-row:last-child  { padding-bottom: 0; }
+
+/* Filter row layout: checkbox / label / value+unit / hint below */
+.cp-filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cp-filter-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  background: rgba(0, 22, 14, 0.18);
+  border: 1px solid rgba(0, 255, 135, 0.10);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: all 0.15s ease;
+}
+.cp-filter-row:hover {
+  border-color: rgba(0, 255, 135, 0.28);
+  background: rgba(0, 28, 18, 0.28);
+}
+.cp-filter-row-disabled {
+  opacity: 0.55;
+}
+.cp-filter-hint {
+  grid-column: 2 / -1;
+  font-size: 13px;
+  color: rgba(208, 240, 222, 0.7);
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-top: -2px;
+  padding-bottom: 2px;
+  line-height: 1.5;
+}
+.cp-filter-hint::before {
+  content: "// ";
+  color: rgba(0, 255, 135, 0.8);
+  font-weight: 700;
+}
+
+/* Cyberpunk checkbox (used in FilterRow) */
+.cp-checkbox {
+  width: 18px; height: 18px;
+  border: 1px solid rgba(120, 150, 135, 0.5);
+  background: rgba(0, 22, 14, 0.55);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  transition: all 0.15s ease;
+}
+.cp-checkbox:hover { border-color: rgba(0, 255, 135, 0.6); }
+.cp-checkbox.cp-checkbox-on {
+  border-color: rgba(0, 255, 135, 0.85);
+  background: rgba(0, 255, 135, 0.18);
+  box-shadow:
+    0 0 8px rgba(0, 255, 135, 0.35),
+    inset 0 0 4px rgba(0, 255, 135, 0.18);
+}
+
+/* Pills for the Trade/Data badges and AI status */
+.cp-pill {
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+}
+.cp-pill-yellow  { color: #ffcc66; }
+.cp-pill-blue    { color: #6ec8ff; }
+.cp-pill-green   { color: #5dffb0; }
+.cp-pill-gray    { color: rgba(160, 200, 180, 0.5); }
+
+/* Locked input look (when a key is set on backend) */
+.cp-input-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: rgba(0, 22, 14, 0.4);
+  border: 1px solid rgba(0, 255, 135, 0.2);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+/* Info banner — sits under a toggle to explain the active state */
+.cp-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+
+/* Radio card (price source selector) */
+.cp-radio-card {
+  text-align: left;
+  padding: 12px 14px;
+  background: rgba(0, 22, 14, 0.4);
+  border: 1px solid rgba(120, 150, 135, 0.32);
+  color: rgba(200, 230, 215, 0.7);
+  font-family: ui-monospace, monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.cp-radio-card:hover {
+  border-color: rgba(0, 255, 135, 0.5);
+  background: rgba(0, 30, 18, 0.55);
+  color: #c8ffe0;
+}
+.cp-radio-card.cp-radio-card-on {
+  border-color: rgba(0, 255, 135, 0.85);
+  background: rgba(0, 255, 135, 0.1);
+  color: #6dffba;
+  box-shadow:
+    0 0 12px rgba(0, 255, 135, 0.28),
+    inset 0 0 6px rgba(0, 255, 135, 0.12);
+}
+.cp-radio-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(120, 150, 135, 0.5);
+  background: transparent;
+}
+.cp-radio-dot.cp-radio-dot-on {
+  border-color: #5dffb0;
+  background: radial-gradient(circle, #5dffb0 0%, #5dffb0 35%, transparent 60%);
+  box-shadow: 0 0 8px rgba(0, 255, 135, 0.85);
+}
+
+/* Stacked chip for sender new-action options (label on top, desc below) */
+.cp-chip-stack {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 14px !important;
+}
+.cp-chip-stack .cp-chip-sub {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  opacity: 0.7;
+}
+
+/* Generic config buttons */
+.cp-cfg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 18px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  border: 1px solid;
+}
+.cp-cfg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.cp-cfg-btn-lg { padding: 12px 28px; font-size: 13px; }
+
+.cp-cfg-btn-primary {
+  background: rgba(0, 255, 135, 0.12);
+  border-color: rgba(0, 255, 135, 0.55);
+  color: #5dffb0;
+  text-shadow: 0 0 4px rgba(0, 255, 135, 0.6);
+}
+.cp-cfg-btn-primary:hover:not(:disabled) {
+  background: rgba(0, 255, 135, 0.22);
+  border-color: rgba(0, 255, 135, 0.9);
+  box-shadow:
+    0 0 14px rgba(0, 255, 135, 0.45),
+    inset 0 0 8px rgba(0, 255, 135, 0.18);
+}
+.cp-cfg-btn-saved {
+  background: rgba(0, 255, 135, 0.28) !important;
+  border-color: rgba(0, 255, 135, 1) !important;
+  box-shadow: 0 0 18px rgba(0, 255, 135, 0.6);
+}
+.cp-cfg-btn-ghost {
+  background: rgba(0, 22, 14, 0.4);
+  border-color: rgba(0, 255, 135, 0.3);
+  color: rgba(0, 255, 135, 0.8);
+}
+.cp-cfg-btn-ghost:hover {
+  border-color: rgba(0, 255, 135, 0.7);
+  background: rgba(0, 30, 18, 0.6);
+  color: #6dffba;
+}
+
+/* Wallet modal sizing */
+.cp-cfg-wallet-modal {
+  width: min(880px, 96vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+.cp-cfg-wallet-modal-body {
+  overflow-y: auto;
+  padding: 0 22px 22px;
+  flex: 1;
+}
