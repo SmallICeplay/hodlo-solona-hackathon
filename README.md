@@ -234,3 +234,5 @@ frontend/src/
 #   c o m m u n i t y - m e m e - t r a d e r - o k x 
  
  
+#   h o d l o - s o l o n a - h a c k a t h o n  
+ 
